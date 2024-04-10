@@ -1,0 +1,22 @@
+import { Controller, Post } from '@nestjs/common';
+import { UserService } from './user.service';
+
+@Controller('user')
+export class UserController {
+  constructor(private readonly userService: UserService) { }
+
+  @Post()
+  async logIn(): Promise<any> {
+    
+  }
+
+  @Post()
+  async signUp(): Promise<any> {
+
+  }
+
+  @Post()
+  async check(): Promise<any> {
+
+  }
+}

@@ -1,0 +1,12 @@
+.input-message__wrapper {
+    flex-shrink: 0;
+    display: flex;
+}
+
+.input-message__text-area {
+    flex-shrink: 0;
+}
+
+.input-message__send-button {
+    flex: 1 0 auto;
+}

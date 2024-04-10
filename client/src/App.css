@@ -1,0 +1,18 @@
+.app {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background-color: #1f2128;
+}
+
+.chat__container {
+    flex: 1;
+    overflow-y: auto;
+    scrollbar-width: none;
+    scrollbar-gutter: stable;
+}
+
+.input_message__container {
+    flex-shrink: 0;
+}
