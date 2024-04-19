@@ -58,6 +58,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 				client.join(chat.id);
 				client.emit("chatJoined", { chat });
 			} else {
+				client.join(chat.id);
+				client.emit("chatJoined", { chat });
 				client.emit("error", { message: "This user is already connected to this chat" });
 			}
 		} else {

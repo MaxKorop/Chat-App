@@ -26,4 +26,8 @@ export class ChatService {
         const newChat = this.chatDtoToChat(chatDto);
         return ChatRepository.create(newChat);
     }
+
+    searchChat(name: string): CreateChatDto[] {
+        return ChatRepository.findByName(name);
+    }
 }

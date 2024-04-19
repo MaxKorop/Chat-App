@@ -6,8 +6,6 @@ import Message from "./Message/Message";
 import './Chat.css';
 
 const Chat = observer(React.forwardRef<HTMLDivElement>((props, ref) => {
-    store.joinChat("1");
-
     return (
         <div ref={ref} className="chat">
             {store.chat?.history.map((message: MessageType) => {

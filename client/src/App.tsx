@@ -8,6 +8,7 @@ import './App.css';
 import { observer } from "mobx-react-lite";
 import { store } from "./store/ChatStore";
 import { io } from "socket.io-client";
+import ChatsList from "./components/ChatsList/ChatsList";
 
 const App: React.FC = observer(() => {
 	const [showModal, setShowModal] = useState<boolean>(true);
@@ -34,11 +35,16 @@ const App: React.FC = observer(() => {
 			>
 				{!showModal && (
 					<>
-						<div ref={chatContainerRef} className="chat__container">
-							<Chat ref={chatRef} />
+						<div className="chats_list__container">
+							<ChatsList />
 						</div>
-						<div className="input_message__container">
-							<InputMessage />
+						<div className="chatting__container">
+							<div ref={chatContainerRef} className="chat__container">
+								<Chat ref={chatRef} />
+							</div>
+							<div className="input_message__container">
+								<InputMessage />
+							</div>
 						</div>
 					</>
 				)}

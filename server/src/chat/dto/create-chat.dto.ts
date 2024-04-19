@@ -1,14 +1,17 @@
-import { IsArray, IsNotEmpty } from "class-validator";
+import { IsArray, IsNotEmpty, IsString, Length } from "class-validator";
 import { ObjectId } from "mongoose";
 import { Message } from "../message.type";
 import { Transform } from "class-transformer";
 
 export class CreateChatDto {
+    id: string
+
     @IsNotEmpty()
     @IsArray()
     users: ObjectId[] // Users
 
     @IsNotEmpty()
+    @Length(3, 25)
     chatName: string | null // Group | PrivateChata
 
     @Transform(({ value }) => (value === undefined ? "" : value))

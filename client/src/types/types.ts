@@ -1,7 +1,11 @@
 export type Chat = {
     id: string,
-    members: string[],
-    history: Message[]
+    users: string[],
+    history: Message[],
+    chatName: string,
+    details: string,
+    private: boolean,
+    createdAt: Date
 }
 
 export type Message = {
