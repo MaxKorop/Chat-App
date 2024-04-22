@@ -1,10 +1,14 @@
 import React, { ChangeEvent, useState } from "react";
-import { Input, Modal } from "antd";
+import { Input, Modal, Space } from "antd";
 import { observer } from "mobx-react-lite";
 import { store } from "../../store/ChatStore";
+import LogIn from "./LogIn/LogIn";
+import SignUp from "./SignUp/SignUp";
 
 const UsernameModal: React.FC<{ show: boolean, setShow: (arg0: boolean) => void }> = observer(({ show, setShow }) => {
     const [userName, setUserName] = useState<string>("");
+    const [password, setPassword] = useState<string>("");
+    const [isLogIn, setIsLogIn] = useState<boolean>(true);
 
     return (
         <Modal
@@ -15,14 +19,8 @@ const UsernameModal: React.FC<{ show: boolean, setShow: (arg0: boolean) => void 
                 setShow(false);
             }}
         >
-            <Input
-                placeholder="Type your name here..."
-                value={userName}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setUserName(e.target.value)}
-                style={{
-                    width: "100%"
-                }}
-            />
+            {isLogIn && <LogIn userName={userName} setUserName={setUserName} password={password} setPassword={setPassword} setIsLogin={setIsLogIn} />}
+            {!isLogIn && <SignUp userName={userName} setUserName={setUserName} password={password} setPassword={setPassword} setIsLogin={setIsLogIn} />}
         </Modal>
     )
 });

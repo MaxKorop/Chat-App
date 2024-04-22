@@ -13,7 +13,8 @@ import { ConfigModule } from '@nestjs/config';
             dbName: 'ChatDB'
         }),
         UserModule,
-        ChatModule],
+        ChatModule
+    ],
     controllers: [AppController],
     providers: [AppService],
 })

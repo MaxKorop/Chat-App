@@ -8,27 +8,27 @@ export type UserDocument = HydratedDocument<User>;
 @Schema()
 export class User {
     @Prop({ required: true })
-    username: string;
-
-    @Prop({ required: true })
-    email: string;
+    userName: string;
 
     @Prop({ required: true })
     password: string;
 
-    @Prop()
-    aboutMe: string | null;
+    @Prop({ default: "" })
+    aboutMe: string;
 
     @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Chat' }] })
     chats: Chat;
 
-    @Prop()
-    lastTimeOnline: mongoose.Schema.Types.Date;
+    @Prop({ default: new Date() })
+    lastTimeOnline: Date;
 
-    @Prop()
+    @Prop({ default: true })
+    online: boolean;
+
+    @Prop({ default: false })
     hideLastTimeOnline: Boolean;
 
-    @Prop()
+    @Prop({ default: false })
     hideInSearch: Boolean;
 }
 

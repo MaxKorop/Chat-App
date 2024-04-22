@@ -1,6 +1,8 @@
-import { Body, Controller, Get, Param, Post, UsePipes, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ChatService } from './chat.service';
-import { CreateChatDto } from './dto/create-chat.dto';
+import { CreateChatDto } from './dto/chat.dto';
+import { Chat } from './chat.schema';
+import { TransformChatDto } from 'src/pipes/chat-transform.pipe';
 
 @Controller('chat')
 export class ChatController {
@@ -8,12 +10,12 @@ export class ChatController {
     
     @Post()
     @UsePipes(new ValidationPipe({ transform: true, transformOptions: { exposeDefaultValues: true } }))
-    async createChat(@Body() createChatDto: CreateChatDto): Promise<CreateChatDto> {
+    async createChat(@Body(new TransformChatDto()) createChatDto: CreateChatDto): Promise<Chat | { message: string }> {
         return this.chatService.createChat(createChatDto);
     }
 
-    @Get(':name')
-    async searchChats(@Param('name') name: string): Promise<CreateChatDto[]> {
+    @Get()
+    async searchChats(@Query('chatName') name: string): Promise<Chat[] | { message: string }> {
         return this.chatService.searchChat(name);
     }
 }
