@@ -4,7 +4,7 @@ import { Message } from "../message.type";
 import { Optional } from "@nestjs/common";
 
 export class CreateChatDto {
-    id: string
+    _id: string
 
     @IsNotEmpty()
     @IsArray()

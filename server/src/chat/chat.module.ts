@@ -4,9 +4,16 @@ import { ChatController } from './chat.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { Chat, ChatSchema } from './chat.schema';
 import { ChatGateway } from './chat.gateway';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
-    imports: [MongooseModule.forFeature([{ name: Chat.name, schema: ChatSchema }])],
+    imports: [
+        JwtModule.register({
+            secret: String(process.env.JWT_SECRET),
+            signOptions: { expiresIn: '24h' }
+        }),
+        MongooseModule.forFeature([{ name: Chat.name, schema: ChatSchema }])
+    ],
     controllers: [ChatController],
     providers: [ChatService, ChatGateway],
 })

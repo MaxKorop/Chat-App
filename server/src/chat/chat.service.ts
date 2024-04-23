@@ -4,6 +4,7 @@ import { Chat } from './chat.schema';
 import { Chat as ChatType } from './chat.type';
 import { Model } from 'mongoose';
 import { CreateChatDto } from './dto/chat.dto';
+import { User } from 'src/user/user.schema';
 
 @Injectable()
 export class ChatService {
@@ -32,5 +33,16 @@ export class ChatService {
 
     async searchChat(name: string) {
         return await this.chatModel.find({ chatName: { $regex: name, $options: "i" }, public: true });
+    }
+
+    async getUsersChats(req: Request) {
+        const user = req['user'] as User;
+        const chatsId = user.chats;
+        const chats = await this.chatModel.find({ '_id': { $in: chatsId } });
+        return chats;
+    }
+
+    async joinChat(req: Request, chatId: string) {
+        
     }
 }

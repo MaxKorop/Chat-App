@@ -24,7 +24,7 @@ export class UserService {
             throw new UnauthorizedException('Invalid credentials.');
         }
         const { password, ...user } = findUser.toObject();
-        const token = this.jwtService.sign(user);
+        const token = this.jwtService.sign(user, { secret: String(process.env.JWT_SECRET) });
 
         return { token };
     }
@@ -45,7 +45,7 @@ export class UserService {
 
         const { password, ...user } = newUser.toObject();
 
-        const token = this.jwtService.sign(user);
+        const token = this.jwtService.sign(user, { secret: String(process.env.JWT_SECRET) });
 
         return { token };
     }
