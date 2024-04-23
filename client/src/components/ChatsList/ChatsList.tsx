@@ -9,7 +9,10 @@ const ChatsList: React.FC = () => {
     return (
         <div>
             <SearchChat onFind={setChatList} />
-            {chatList.map((chatItem: Chat) => <ChatItem key={chatItem.id} chat={chatItem} />)}
+            {chatList.map((chatItem: Chat) => {
+                console.log(chatItem);
+                return <ChatItem key={chatItem._id} chat={chatItem} />
+            })}
         </div>
     )
 };

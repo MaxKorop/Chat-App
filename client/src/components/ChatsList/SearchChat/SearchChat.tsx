@@ -1,6 +1,6 @@
 import { Button, Input } from 'antd';
 import React, { ChangeEvent, useState } from 'react';
-import { searchChats } from '../../../http/http';
+import { searchChats } from '../../../http/chatAPI';
 
 const SearchChat: React.FC<{ onFind: Function }> = ({ onFind }) => {
     const [chatName, setChatName] = useState<string>("");

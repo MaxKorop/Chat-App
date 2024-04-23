@@ -1,10 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Chat } from './chat.schema';
 import { Chat as ChatType } from './chat.type';
 import { Model } from 'mongoose';
-import { CreateChatDto } from './dto/create-chat.dto';
-import { ChatRepository } from './chat.repository';
+import { CreateChatDto } from './dto/chat.dto';
 
 @Injectable()
 export class ChatService {
@@ -22,12 +21,16 @@ export class ChatService {
         return chatInstance;
     }
 
-    createChat(chatDto: CreateChatDto) {
-        const newChat = this.chatDtoToChat(chatDto);
-        return ChatRepository.create(newChat);
+    async createChat(chatDto: CreateChatDto) {
+        const chat = await this.chatModel.findOne({ chatName: chatDto.chatName });
+        if (chat) {
+            throw new BadRequestException('Chat with this name already exists')
+        }
+        const newChat = await this.chatModel.create(chatDto);
+        return newChat;
     }
 
-    searchChat(name: string): CreateChatDto[] {
-        return ChatRepository.findByName(name);
+    async searchChat(name: string) {
+        return await this.chatModel.find({ chatName: { $regex: name, $options: "i" }, public: true });
     }
 }

@@ -1,10 +1,10 @@
 import { Input, Space, Typography } from "antd";
 import React, { ChangeEvent } from "react";
-import { AuthComponentsProps } from "../../../types/componentsProps";
+import { SignUpComponentProps } from "../../../types/componentsProps";
 
 const { Title, Link } = Typography;
 
-const SignUp: React.FC<AuthComponentsProps> = ({ userName, setUserName, password, setPassword, setIsLogin }) => {
+const SignUp: React.FC<SignUpComponentProps> = ({ userName, setUserName, password, setPassword, setIsLogin, email, setEmail }) => {
     return (
         <Space
             direction="vertical"
@@ -18,6 +18,14 @@ const SignUp: React.FC<AuthComponentsProps> = ({ userName, setUserName, password
                 placeholder="Type your name here..."
                 value={userName}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setUserName(e.target.value)}
+                style={{
+                    width: "100%"
+                }}
+            />
+            <Input
+                placeholder="Type your email here..."
+                value={email}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                 style={{
                     width: "100%"
                 }}

@@ -50,7 +50,7 @@ export class CreateMessageDto {
         this.media = media;
         this.sentBy = sentBy;
         this.repliedTo = repliedTo || null;
-        this.sentAt = sentAt || new Date();
+        this.sentAt = sentAt || new Date(new Date().toString().slice(0, new Date().toString().length - 42));
         this.modified = modified || false;
         this.translatedFrom = translatedFrom || null;
     }

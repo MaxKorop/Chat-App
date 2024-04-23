@@ -1,10 +1,12 @@
 import { ConnectedSocket, MessageBody, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { CreateMessageDto } from './dto/create-message.dto';
-import { ChatRepository } from './chat.repository';
+import { CreateMessageDto } from './dto/message.dto';
 import { Message } from './message.type';
-import mongoose from 'mongoose';
+import mongoose, { Model } from 'mongoose';
 import { TransformMessageDto } from 'src/pipes/message-tranform.pipe';
+import { InjectModel } from '@nestjs/mongoose';
+import { Chat } from './chat.schema';
+import { User } from 'src/user/user.type';
 
 @WebSocketGateway({
 	origin: 'http://localhost:3000'
@@ -14,6 +16,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 	server: Server;
 
 	private wsConnections: Socket[] = [];
+
+	constructor(@InjectModel(Chat.name) private chatModel: Model<Chat>) {}
 
 	toMessageInstance(dto: CreateMessageDto): Message {
         const message: Message = {
@@ -38,30 +42,24 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 	}
 
 	@SubscribeMessage("send")
-	sendMessage(@MessageBody(new TransformMessageDto()) { chatId, message }: { chatId: string, message: CreateMessageDto }) {
-		const chat = ChatRepository.findById(chatId);
+	async sendMessage(@MessageBody(new TransformMessageDto()) { chatId, message }: { chatId: string, message: CreateMessageDto }) {
+		const chat = await this.chatModel.findById(chatId);
 		if (chat) {
-			ChatRepository.sendMessage(chatId, this.toMessageInstance(message));
+			chat.history.push(message);
+			chat.save();
 			this.server.to(chat.id).emit("chatMessage", message);
 		}
 	}
 
 	// Connect user to different chats (that means that connected socket == user online)
 	@SubscribeMessage("joinChat")
-	joinChat(@ConnectedSocket() client: Socket, @MessageBody() { chatId }: { chatId: string }) {
-		const { userId } = client.handshake.query;
-		const _id = new mongoose.Schema.Types.ObjectId(userId.toString());
-		const chat = ChatRepository.findById(chatId);
-		if (chat) {
-			if (!chat.users.filter(id => JSON.stringify(id) === JSON.stringify(_id)).length) {
-				ChatRepository.connectToChat(chatId, _id);
-				client.join(chat.id);
-				client.emit("chatJoined", { chat });
-			} else {
-				client.join(chat.id);
-				client.emit("chatJoined", { chat });
-				client.emit("error", { message: "This user is already connected to this chat" });
-			}
+	async joinToChatting(@ConnectedSocket() client: Socket, @MessageBody() { chatId }: { chatId: string }) {
+		// const user = JSON.parse(client.handshake.query.user as string) as User;
+		const chat = await this.chatModel.findById(chatId);
+		if (chat /*&& user.chats.includes(chat._id)*/) {
+			client.join(chat.id);
+			client.emit("chatJoined", { chat: chat.toObject() });
+			client.emit("error", { message: "This user is already connected to this chat" });
 		} else {
 			client.emit("error", { message: "Chat does not exists" });
 		}

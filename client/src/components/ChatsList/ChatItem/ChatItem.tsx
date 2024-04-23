@@ -8,7 +8,7 @@ const ChatItem: React.FC<{ chat: Chat }> = observer(({ chat }) => {
 
     // Selecting chat with 'click' from the list
     const handleClick = () => {
-        store.joinChat(chat.id)
+        store.joinChat(chat._id)
     }
 
     return (

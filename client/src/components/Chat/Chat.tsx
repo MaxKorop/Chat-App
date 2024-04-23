@@ -9,7 +9,7 @@ const Chat = observer(React.forwardRef<HTMLDivElement>((props, ref) => {
     return (
         <div ref={ref} className="chat">
             {store.chat?.history.map((message: MessageType) => {
-                return <Message sentBy={message.sentBy} sentAt={message.sentAt} payload={message.payload} repliedTo={message.repliedTo} key={message.id} />
+                return <Message message={message} />
             })}
         </div>
     )

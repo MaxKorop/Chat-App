@@ -9,6 +9,7 @@ import { observer } from "mobx-react-lite";
 import { store } from "./store/ChatStore";
 import { io } from "socket.io-client";
 import ChatsList from "./components/ChatsList/ChatsList";
+import { toJS } from "mobx";
 
 const App: React.FC = observer(() => {
 	const [showModal, setShowModal] = useState<boolean>(true);
@@ -22,11 +23,11 @@ const App: React.FC = observer(() => {
 	useEffect(() => {
 		if (chatContainerRef.current) chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
 		if (chatRef.current) chatResizeObserver.observe(chatRef.current);
-		if (store.userName.length) {
-			store.socket = io("ws://localhost:5000", { transports: ['websocket', 'polling'], query: { userId: store.userName } });
+		if (store.user) {
+			store.socket = io("ws://localhost:5000", { transports: ['websocket', 'polling'], query: { user: JSON.stringify(toJS(store.user)) } });
 		}
 		return () => chatResizeObserver.disconnect();
-	}, [store.userName]);
+	}, [store.user]);
 
 	return (
 		<div className="app">

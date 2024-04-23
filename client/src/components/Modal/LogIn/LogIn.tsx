@@ -1,10 +1,10 @@
 import { Input, Space, Typography } from "antd";
 import React, { ChangeEvent } from "react";
-import { AuthComponentsProps } from "../../../types/componentsProps";
+import { LogInComponentProps } from "../../../types/componentsProps";
 
 const { Title, Link } = Typography;
 
-const LogIn: React.FC<AuthComponentsProps> = ({ userName, setUserName, password, setPassword, setIsLogin }) => {
+const LogIn: React.FC<LogInComponentProps> = ({ userName, setUserName, password, setPassword, setIsLogin }) => {
     return (
         <Space
             direction="vertical"

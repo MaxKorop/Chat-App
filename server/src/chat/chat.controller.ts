@@ -8,7 +8,7 @@ import { TransformChatDto } from 'src/pipes/chat-transform.pipe';
 export class ChatController {
     constructor(private readonly chatService: ChatService) { }
     
-    @Post()
+    @Post('create')
     @UsePipes(new ValidationPipe({ transform: true, transformOptions: { exposeDefaultValues: true } }))
     async createChat(@Body(new TransformChatDto()) createChatDto: CreateChatDto): Promise<Chat | { message: string }> {
         return this.chatService.createChat(createChatDto);
@@ -17,5 +17,10 @@ export class ChatController {
     @Get()
     async searchChats(@Query('chatName') name: string): Promise<Chat[] | { message: string }> {
         return this.chatService.searchChat(name);
+    }
+
+    @Post('join')
+    async joinChat() {
+
     }
 }

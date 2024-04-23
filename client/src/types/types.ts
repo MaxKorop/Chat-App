@@ -1,15 +1,27 @@
+export type User = {
+    _id: string
+    userName: string
+    aboutMe: string[]
+    chats: string[]
+    lastTimeOnline: Date
+    online: boolean
+    hideLastTimeOnline: boolean
+    hideInSearch: boolean
+}
+
 export type Chat = {
-    id: string,
-    users: string[],
-    history: Message[],
-    chatName: string,
-    details: string,
-    private: boolean,
+    _id: string
+    users: User[]
+    history: Message[]
+    chatName: string
+    details: string
+    private: boolean
+    public: boolean
     createdAt: Date
 }
 
 export type Message = {
-    id: number
+    _id: number
     payload: string
     sentBy: string
     sentAt: Date

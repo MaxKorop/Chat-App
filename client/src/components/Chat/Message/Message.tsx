@@ -4,9 +4,12 @@ import "./Message.css";
 import { observer } from "mobx-react-lite";
 import { store } from "../../../store/ChatStore";
 
-const Message: React.FC<MessageProps> = observer(({ payload, sentBy, sentAt, repliedTo }) => {
+const Message: React.FC<MessageProps> = observer(({ message }) => {
     const myMessageRef = useRef<HTMLDivElement>(null);
-    let messageSentBy = sentBy === store.userName ? "" : sentBy;
+
+    const { payload, sentBy, sentAt, repliedTo } = message;
+
+    let messageSentBy = sentBy === store?.user?.userName ? "" : sentBy;
 
     useEffect(() => {
         if (!messageSentBy.length && myMessageRef.current) myMessageRef.current.classList.add("message--my");
