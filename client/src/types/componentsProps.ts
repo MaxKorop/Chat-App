@@ -1,18 +1,17 @@
+import { InputRef } from "antd"
 import { Message } from "./types"
+import { RefObject } from "react"
 
 export interface MessageProps {
     message: Message
 }
 
 export interface LogInComponentProps {
-    userName: string,
-    setUserName: (arg0: string) => void,
-    password: string,
-    setPassword: (arg0: string) => void,
+    userName: RefObject<InputRef>,
+    password: RefObject<InputRef>,
     setIsLogin: (arg0: boolean) => void
 }
 
 export interface SignUpComponentProps extends LogInComponentProps {
-    email: string,
-    setEmail: (arg0: string) => void
+    email: RefObject<InputRef>
 }

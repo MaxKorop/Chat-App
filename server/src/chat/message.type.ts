@@ -6,6 +6,7 @@ export type Message = {
     payload: string // Message information
     media?: Buffer // If message.type == Image | GIF | Video
     sentBy: Schema.Types.ObjectId // User
+    sentByName: string
     repliedTo?: Schema.Types.ObjectId // Message
     sentAt: Date // MongoDb Date
     modified: Boolean

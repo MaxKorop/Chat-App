@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Post, Query, Request, UseGuards, UsePipes, ValidationPipe } from '@nestjs/common';
 import { ChatService } from './chat.service';
-import { CreateChatDto } from './dto/chat.dto';
+import { CreateChatDto, JoinChatDto } from './dto/chat.dto';
 import { Chat } from './chat.schema';
 import { TransformChatDto } from 'src/pipes/chat-transform.pipe';
 import { AuthGuard } from 'src/guards/auth.guard';
@@ -30,7 +30,7 @@ export class ChatController {
 
     @UseGuards(AuthGuard)
     @Post('join')
-    async joinChat(@Request() req: Request, @Body() chat: CreateChatDto) {
-        return this.chatService.joinChat(req, chat._id);
+    async joinChat(@Request() req: Request, @Body() chat: JoinChatDto) {
+        return this.chatService.joinChat(req, chat.chatId);
     }
 }

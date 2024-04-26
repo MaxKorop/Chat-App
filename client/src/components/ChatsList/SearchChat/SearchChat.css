@@ -1,0 +1,8 @@
+.search-chat__container {
+    display: flex;
+    flex-direction: row;
+}
+
+.search-chat__container > * {
+    margin: 5px;
+}

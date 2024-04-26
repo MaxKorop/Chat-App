@@ -1,0 +1,16 @@
+.chat-info-header__container {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    color: white;
+    width: 100%;
+    height: 55px;
+    background-color: #2a2d3b;
+    -webkit-box-shadow: 0px 1px 1px 0px rgba(54,56,64,0.7);
+    -moz-box-shadow: 0px 1px 1px 0px rgba(54,56,64,0.7);
+    box-shadow: 0px 1px 1px 0px rgba(54,56,64,0.7);
+}
+
+.chat-info-header__container > span {
+    margin-left: 30px;
+}

@@ -8,6 +8,11 @@ export const searchChats = async (name: string): Promise<Chat[]> => {
     return data;
 }
 
+export const getUserChats = async () => {
+    const { data }: { data: Chat[] } = await $authHost.get('/chat/user');
+    return data;
+}
+
 export const createChat = async ({name, details, history=[], users=[] }: {name: string, details: string, history: [], users: []}): Promise<Chat> => {
     const chat = {
         chatName: name,
@@ -17,4 +22,14 @@ export const createChat = async ({name, details, history=[], users=[] }: {name: 
     };
     const { data }: { data: Chat } = await $authHost.post('/chat/create', { ...chat });
     return data;
+}
+
+export const joinChat = async (chatId: string): Promise<Chat | null> => {
+    try {
+        const { data }: { data: Chat } = await $authHost.post('/chat/join', { chatId });
+        return data;
+    } catch (error: any) {
+        console.error(error.response.data.message);
+        return null;
+    }
 }

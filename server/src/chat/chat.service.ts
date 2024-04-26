@@ -4,7 +4,7 @@ import { Chat } from './chat.schema';
 import { Chat as ChatType } from './chat.type';
 import { Model } from 'mongoose';
 import { CreateChatDto } from './dto/chat.dto';
-import { User } from 'src/user/user.schema';
+import { User } from 'src/user/user.type';
 
 @Injectable()
 export class ChatService {
@@ -32,7 +32,9 @@ export class ChatService {
     }
 
     async searchChat(name: string) {
-        return await this.chatModel.find({ chatName: { $regex: name, $options: "i" }, public: true });
+        if (!name.trim().length) return [];
+        const regexp = new RegExp(name, 'i');
+        return await this.chatModel.find({ chatName: { $regex: regexp }, public: true });
     }
 
     async getUsersChats(req: Request) {
@@ -43,6 +45,16 @@ export class ChatService {
     }
 
     async joinChat(req: Request, chatId: string) {
-        
+        const user = req['user'] as User;
+        const { _id } = user;
+        const chat = await this.chatModel.findById(chatId);
+        if (chat) {
+            if (chat.users.includes(_id)) {
+                throw new BadRequestException("User already in this chat.");
+            }
+            chat.users.push(_id);
+            chat.save();
+        }
+        return chat;
     }
 }

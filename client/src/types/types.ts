@@ -24,6 +24,7 @@ export type Message = {
     _id: number
     payload: string
     sentBy: string
+    sentByName: string
     sentAt: Date
     repliedTo?: string
 }

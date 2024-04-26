@@ -1,6 +1,5 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { HydratedDocument } from "mongoose";
-import { Chat } from "src/chat/chat.schema";
 import * as mongoose from "mongoose";
 
 export type UserDocument = HydratedDocument<User>;
@@ -17,7 +16,7 @@ export class User {
     aboutMe: string;
 
     @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Chat' }] })
-    chats: Chat;
+    chats: mongoose.Types.ObjectId[];
 
     @Prop({ default: new Date() })
     lastTimeOnline: Date;

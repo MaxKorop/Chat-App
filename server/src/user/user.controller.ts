@@ -1,6 +1,7 @@
-import { Body, Controller, HttpException, Post } from '@nestjs/common';
+import { Body, Controller, Post, Request, UseGuards } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/user.dto';
+import { AuthGuard } from 'src/guards/auth.guard';
 
 @Controller('user')
 export class UserController {
@@ -17,8 +18,15 @@ export class UserController {
 		return this.userService.signUp(userDto);
 	}
 
+	@UseGuards(AuthGuard)
 	@Post('check')
-	async check(): Promise<any> {
-		
+	async check(@Request() req: Request): Promise<any> {
+		return this.userService.check(req);
+	}
+
+	@UseGuards(AuthGuard)
+	@Post('joinToChat')
+	async joinToChat(@Request() req: Request, @Body() body: { chatId: string }) {
+		return this.userService.joinToChat(req, body.chatId);
 	}
 }

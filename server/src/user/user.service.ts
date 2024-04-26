@@ -1,7 +1,7 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { User } from './user.schema';
-import { Model } from 'mongoose';
+import mongoose, { Model, ObjectId } from 'mongoose';
 import { CreateUserDto } from './dto/user.dto';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
@@ -47,6 +47,32 @@ export class UserService {
 
         const token = this.jwtService.sign(user, { secret: String(process.env.JWT_SECRET) });
 
+        return { token };
+    }
+
+    async check(req: Request) {
+        const oldTokenUser = req['user'];
+        const { password, ...user } = (await this.userModel.findById(oldTokenUser?._id)).toObject();
+        const token = this.jwtService.sign(user, { secret: String(process.env.JWT_SECRET) });
+        return { token };
+    }
+
+
+    // Error with ObjectId
+    async joinToChat(req: Request, chatId: string) {
+        const user = req['user'];
+        const findUser = await this.userModel.findById(user?._id);
+        if (!findUser) {
+            throw new UnauthorizedException();
+        }
+        const id = new mongoose.Types.ObjectId(chatId);
+        if (findUser.chats.includes(id)) {
+            throw new BadRequestException("User already in this chat.");
+        }
+        findUser.chats.push(id);
+        findUser.save();
+        const {password, ...updatedUser} = (await this.userModel.findById(user?._id)).toObject();
+        const token = this.jwtService.sign(updatedUser, { secret: String(process.env.JWT_SECRET) });
         return { token };
     }
 }

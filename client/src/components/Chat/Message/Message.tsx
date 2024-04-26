@@ -7,9 +7,9 @@ import { store } from "../../../store/ChatStore";
 const Message: React.FC<MessageProps> = observer(({ message }) => {
     const myMessageRef = useRef<HTMLDivElement>(null);
 
-    const { payload, sentBy, sentAt, repliedTo } = message;
+    const { payload, sentBy, sentByName, sentAt, repliedTo } = message;
 
-    let messageSentBy = sentBy === store?.user?.userName ? "" : sentBy;
+    let messageSentBy = sentByName === store?.user?.userName ? "" : sentByName;
 
     useEffect(() => {
         if (!messageSentBy.length && myMessageRef.current) myMessageRef.current.classList.add("message--my");

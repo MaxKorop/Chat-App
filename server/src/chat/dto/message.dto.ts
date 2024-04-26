@@ -20,6 +20,9 @@ export class CreateMessageDto {
     @IsNotEmpty()
     sentBy: Schema.Types.ObjectId; // User
 
+    @IsNotEmpty()
+    sentByName: string
+
     @IsOptional()
     repliedTo: Schema.Types.ObjectId; // Message
 
@@ -36,6 +39,7 @@ export class CreateMessageDto {
     constructor(
         payload: string,
         sentBy: Schema.Types.ObjectId,
+        sentByName: string,
         type?: "Text" | "Image" | "GIF" | "Video",
         status?: "Sent" | "Read",
         media: Buffer = null,
@@ -49,6 +53,7 @@ export class CreateMessageDto {
         this.payload = payload;
         this.media = media;
         this.sentBy = sentBy;
+        this.sentByName = sentByName;
         this.repliedTo = repliedTo || null;
         this.sentAt = sentAt || new Date(new Date().toString().slice(0, new Date().toString().length - 42));
         this.modified = modified || false;

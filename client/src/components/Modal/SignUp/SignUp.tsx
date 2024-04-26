@@ -4,7 +4,7 @@ import { SignUpComponentProps } from "../../../types/componentsProps";
 
 const { Title, Link } = Typography;
 
-const SignUp: React.FC<SignUpComponentProps> = ({ userName, setUserName, password, setPassword, setIsLogin, email, setEmail }) => {
+const SignUp: React.FC<SignUpComponentProps> = ({ userName, password, setIsLogin, email }) => {
     return (
         <Space
             direction="vertical"
@@ -16,28 +16,25 @@ const SignUp: React.FC<SignUpComponentProps> = ({ userName, setUserName, passwor
             <Title level={4} >Sign Up</Title>
             <Input
                 placeholder="Type your name here..."
-                value={userName}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setUserName(e.target.value)}
                 style={{
                     width: "100%"
                 }}
+                ref={userName}
             />
             <Input
                 placeholder="Type your email here..."
-                value={email}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                 style={{
                     width: "100%"
                 }}
+                ref={email}
             />
             <Input
                 placeholder="Type your password here..."
                 type="password"
-                value={password}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                 style={{
                     width: "100%"
                 }}
+                ref={password}
             />
             <Link onClick={() => setIsLogin(true)}>Sign Up</Link>
         </Space>

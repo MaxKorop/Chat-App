@@ -42,3 +42,7 @@ export class CreateChatDto {
         this.createdAt = createdAt || new Date();
     }
 }
+
+export class JoinChatDto {
+    chatId: string
+}

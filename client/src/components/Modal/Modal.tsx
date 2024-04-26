@@ -1,5 +1,5 @@
-import React, { ChangeEvent, useState } from "react";
-import { Input, Modal, Space } from "antd";
+import React, { ChangeEvent, useRef, useState } from "react";
+import { Input, InputRef, Modal, Space } from "antd";
 import { observer } from "mobx-react-lite";
 import { store } from "../../store/ChatStore";
 import LogIn from "./LogIn/LogIn";
@@ -7,8 +7,9 @@ import SignUp from "./SignUp/SignUp";
 import { logIn, signUp } from "../../http/userAPI";
 
 const UsernameModal: React.FC<{ show: boolean, setShow: (arg0: boolean) => void }> = observer(({ show, setShow }) => {
-    const [userName, setUserName] = useState<string>("");
-    const [password, setPassword] = useState<string>("");
+    const userNameRef = useRef<InputRef>(null);
+    const passwordRef = useRef<InputRef>(null);
+    const emailRef = useRef<InputRef>(null);
     const [email, setEmail] = useState<string>("");
     const [isLogIn, setIsLogIn] = useState<boolean>(true);
     const emailRegExp = /^(([^<>()[\]\.,;:\s@\"]+(\.[^<>()[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i
@@ -19,14 +20,14 @@ const UsernameModal: React.FC<{ show: boolean, setShow: (arg0: boolean) => void 
     }
 
     const auth = async () => {
-        if (isLogIn) {
-            const user = await logIn(userName, password);
+        if (isLogIn && userNameRef.current && passwordRef.current) {
+            const user = await logIn(userNameRef.current.input?.value as string, passwordRef.current.input?.value as string);
             if (user) {
                 store.user = user;
                 return true;
             }
-        } else {
-            const user = await signUp(userName, password, email);
+        } else if (userNameRef.current && passwordRef.current && emailRef.current) {
+            const user = await signUp(userNameRef.current.input?.value as string, passwordRef.current.input?.value as string, emailRef.current.input?.value as string);
             if (user) {
                 store.user = user;
                 return true;
@@ -44,20 +45,15 @@ const UsernameModal: React.FC<{ show: boolean, setShow: (arg0: boolean) => void 
             }}
         >
             {isLogIn && <LogIn
-                userName={userName}
-                setUserName={setUserName}
-                password={password}
-                setPassword={setPassword}
+                userName={userNameRef}
+                password={passwordRef}
                 setIsLogin={setIsLogIn}
             />}
             {!isLogIn && <SignUp
-                userName={userName}
-                setUserName={setUserName}
-                password={password}
-                setPassword={setPassword}
+                userName={userNameRef}
+                password={passwordRef}
+                email={emailRef}
                 setIsLogin={setIsLogIn}
-                email={email}
-                setEmail={checkAndSetEmail}
             />}
         </Modal>
     )
