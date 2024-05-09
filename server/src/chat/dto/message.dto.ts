@@ -4,7 +4,7 @@ import { Schema } from "mongoose"
 import { v4 } from 'uuid';
 
 export class CreateMessageDto {
-    _id: string
+    _id: string;
 
     @IsOptional()
     @Transform(({ value }) => (value === undefined ? "Text" : value))
@@ -23,7 +23,9 @@ export class CreateMessageDto {
     sentBy: Schema.Types.ObjectId; // User
 
     @IsNotEmpty()
-    sentByName: string
+    sentByName: string;
+
+    readBy: Schema.Types.ObjectId[];
 
     @IsOptional()
     repliedTo: Schema.Types.ObjectId; // Message
@@ -42,24 +44,26 @@ export class CreateMessageDto {
         payload: string,
         sentBy: Schema.Types.ObjectId,
         sentByName: string,
+        readBy: Schema.Types.ObjectId[],
+        media: Buffer = null,
         type?: "Text" | "Image" | "GIF" | "Video",
         status?: "Sent" | "Read",
-        media: Buffer = null,
         repliedTo?: Schema.Types.ObjectId,
         sentAt?: Date,
         modified?: Boolean,
         translatedFrom?: Schema.Types.ObjectId
     ) {
         this._id = v4();
-        this.type = type || "Text";
-        this.status = status || "Sent";
         this.payload = payload;
         this.media = media;
         this.sentBy = sentBy;
         this.sentByName = sentByName;
-        this.repliedTo = repliedTo || null;
-        this.sentAt = sentAt || new Date(new Date().toString().slice(0, new Date().toString().length - 42));
-        this.modified = modified || false;
-        this.translatedFrom = translatedFrom || null;
+        this.readBy = readBy;
+        this.type = type ?? "Text";
+        this.status = status ?? "Sent";
+        this.repliedTo = repliedTo ?? null;
+        this.sentAt = sentAt ?? new Date(new Date().toString().slice(0, new Date().toString().length - 42));
+        this.modified = modified ?? false;
+        this.translatedFrom = translatedFrom ?? null;
     }
 }
