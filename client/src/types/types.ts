@@ -3,6 +3,7 @@ export type User = {
     userName: string
     aboutMe: string[]
     chats: string[]
+    friends: string[]
     lastTimeOnline: Date
     online: boolean
     hideLastTimeOnline: boolean
@@ -13,12 +14,15 @@ export type Chat = {
     _id: string
     users: User[]
     history: Message[]
+    userNames: string[]
     chatName: string
     details: string
     private: boolean
     public: boolean
     createdAt: Date
 }
+
+export const isUser = (value: User | Chat): value is User => 'userName' in value;
 
 export type Message = {
     _id: number

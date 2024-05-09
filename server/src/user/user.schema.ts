@@ -10,10 +10,16 @@ export class User {
     userName: string;
 
     @Prop({ required: true })
+    email: string;
+
+    @Prop({ required: true })
     password: string;
 
     @Prop({ default: "" })
     aboutMe: string;
+
+    @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }] })
+    friends: mongoose.Types.ObjectId[];
 
     @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Chat' }] })
     chats: mongoose.Types.ObjectId[];
@@ -21,14 +27,17 @@ export class User {
     @Prop({ default: new Date() })
     lastTimeOnline: Date;
 
-    @Prop({ default: true })
+    @Prop({ default: false })
     online: boolean;
 
     @Prop({ default: false })
-    hideLastTimeOnline: Boolean;
+    hideLastTimeOnline: boolean;
 
     @Prop({ default: false })
-    hideInSearch: Boolean;
+    hideInSearch: boolean;
+
+    @Prop({ default: true })
+    canAddToFriends: boolean;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

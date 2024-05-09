@@ -21,9 +21,9 @@ const LogIn: React.FC<LogInComponentProps> = ({ userName, password, setIsLogin }
                 }}
                 ref={userName}
             />
-            <Input
+            <Input.Password
                 placeholder="Type your password here..."
-                type="password"
+                visibilityToggle={true}
                 style={{
                     width: "100%"
                 }}

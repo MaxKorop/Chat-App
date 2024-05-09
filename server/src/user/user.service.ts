@@ -1,10 +1,11 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { User } from './user.schema';
-import mongoose, { Model, ObjectId } from 'mongoose';
-import { CreateUserDto } from './dto/user.dto';
+import mongoose, { Model } from 'mongoose';
+import { CreateUserDto, LogInUserDto, ResponseUserDto } from './dto/user.dto';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
+import { CreateChatDto } from 'src/chat/dto/chat.dto';
 
 @Injectable()
 export class UserService {
@@ -13,7 +14,7 @@ export class UserService {
         private jwtService: JwtService
     ) { }
 
-    async logIn(userDto: CreateUserDto): Promise<{ token: string }> {
+    async logIn(userDto: LogInUserDto): Promise<{ token: string }> {
         const findUser = await this.userModel.findOne({ userName: userDto.userName });
 
         if (!findUser) throw new UnauthorizedException('Invalid credentials.');
@@ -40,6 +41,7 @@ export class UserService {
 
         const newUser = await this.userModel.create({
             userName: userDto.userName,
+            email: userDto.email,
             password: hashedPassword,
         });
 
@@ -57,8 +59,6 @@ export class UserService {
         return { token };
     }
 
-
-    // Error with ObjectId
     async joinToChat(req: Request, chatId: string) {
         const user = req['user'];
         const findUser = await this.userModel.findById(user?._id);
@@ -70,9 +70,41 @@ export class UserService {
             throw new BadRequestException("User already in this chat.");
         }
         findUser.chats.push(id);
-        findUser.save();
-        const {password, ...updatedUser} = (await this.userModel.findById(user?._id)).toObject();
+        await findUser.save();
+        const {password, ...updatedUser} = (await this.userModel.findById(user._id)).toObject();
         const token = this.jwtService.sign(updatedUser, { secret: String(process.env.JWT_SECRET) });
         return { token };
+    }
+
+    async findUser(req: Request, userName: string) {
+        const { _id } = req['user'];
+        if (!userName.trim().length) return [];
+        const regexp = new RegExp(userName, 'i');
+        return (await this.userModel.find({ userName: { $regex: regexp }, hideInSearch: false, canAddToFriends: true, _id: { $ne: _id } })).map(friend => new ResponseUserDto(friend.toObject()));
+    }
+
+    async addFriend(req: Request, userId: string) {
+        const userFromToken = req['user'];
+        const user = await this.userModel.findById(userFromToken._id);
+        const userToAdd = await this.userModel.findById(userId);
+        if (!userToAdd.canAddToFriends) throw new BadRequestException('Cannot add this user to friends, user does not allow this.')
+        user.friends.push(userToAdd._id);
+        userToAdd.friends.push(user._id);
+        await user.save();
+        await userToAdd.save();
+        const { password, ...userWithFriend } = (await this.userModel.findById(user._id)).toObject();
+        const token = this.jwtService.sign(userWithFriend, { secret: String(process.env.JWT_SECRET) });
+        return { token };
+    }
+
+    async getUserFriends(req: Request) {
+        const userFromToken = req['user'];
+        const user = await this.userModel.findById(userFromToken._id);
+        return (await this.userModel.find({ _id: { $in: user.friends } })).map(friend => new ResponseUserDto(friend.toObject()));
+    }
+
+    async autoAddToChat(chat: CreateChatDto) {
+        const { users } = chat;
+        await this.userModel.updateMany({ _id: { $in: users } }, { $addToSet: { chats: chat._id } });
     }
 }

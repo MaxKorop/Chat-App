@@ -1,8 +1,10 @@
 import { Transform } from "class-transformer";
 import { IsNotEmpty, IsOptional } from "class-validator";
 import { Schema } from "mongoose"
+import { v4 } from 'uuid';
 
 export class CreateMessageDto {
+    _id: string
 
     @IsOptional()
     @Transform(({ value }) => (value === undefined ? "Text" : value))
@@ -48,6 +50,7 @@ export class CreateMessageDto {
         modified?: Boolean,
         translatedFrom?: Schema.Types.ObjectId
     ) {
+        this._id = v4();
         this.type = type || "Text";
         this.status = status || "Sent";
         this.payload = payload;

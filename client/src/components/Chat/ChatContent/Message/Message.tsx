@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from "react";
-import { MessageProps } from "../../../types/componentsProps";
+import { MessageProps } from "../../../../types/componentsProps";
 import "./Message.css";
 import { observer } from "mobx-react-lite";
-import { store } from "../../../store/ChatStore";
+import { store } from "../../../../store/ChatStore";
 
 const Message: React.FC<MessageProps> = observer(({ message }) => {
     const myMessageRef = useRef<HTMLDivElement>(null);

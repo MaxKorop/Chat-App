@@ -9,4 +9,5 @@
 
 .input-message__send-button {
     flex: 1 0 auto;
+    align-self: flex-end;
 }

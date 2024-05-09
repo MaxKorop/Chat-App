@@ -9,12 +9,6 @@
     font-weight: 400;
 }
 
-.chats_list__container {
-    width: 400px;
-    height: 100%;
-    background-color: #191a20;
-}
-
 .chatting__container {
     display: flex;
     flex-direction: column;
@@ -23,10 +17,12 @@
 }
 
 .chat__container {
+    display: flex;
     flex: 1;
     overflow-y: auto;
     scrollbar-width: none;
     scrollbar-gutter: stable;
+    justify-content: flex-end;
 }
 
 .input_message__container {

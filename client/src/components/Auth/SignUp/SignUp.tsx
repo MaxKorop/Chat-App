@@ -28,9 +28,9 @@ const SignUp: React.FC<SignUpComponentProps> = ({ userName, password, setIsLogin
                 }}
                 ref={email}
             />
-            <Input
+            <Input.Password
                 placeholder="Type your password here..."
-                type="password"
+                visibilityToggle={true}
                 style={{
                     width: "100%"
                 }}

@@ -2,7 +2,7 @@ import React from "react";
 import { observer } from "mobx-react-lite";
 import { store } from "../../../store/ChatStore";
 import { Message as MessageType } from "../../../types/types";
-import Message from "../Message/Message";
+import Message from "./Message/Message";
 import './ChatContent.css';
 
 const ChatContent = observer(React.forwardRef<HTMLDivElement>((props, ref) => {

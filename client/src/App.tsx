@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ConfigProvider } from "antd";
-import UsernameModal from "./components/Modal/Modal";
+import AuthModal from "./components/Auth/AuthModal";
 import { THEME } from "./theme";
 import './App.css';
 import { observer } from "mobx-react-lite";
 import { store } from "./store/ChatStore";
 import { io } from "socket.io-client";
-import ChatsList from "./components/ChatsList/ChatsList";
+import SidePanel from "./components/SidePanel/SidePanel";
 import { toJS } from "mobx";
 import Chat from "./components/Chat/Chat";
 import { check } from "./http/userAPI";
@@ -41,13 +41,11 @@ const App: React.FC = observer(() => {
 			>
 				{!showModal && (
 					<>
-						<div className="chats_list__container">
-							<ChatsList />
-						</div>
+						<SidePanel />
 						<Chat />
 					</>
 				)}
-				<UsernameModal show={showModal} setShow={setShowModal} />
+				<AuthModal show={showModal} setShow={setShowModal} />
 			</ConfigProvider>
 		</div>
 	)

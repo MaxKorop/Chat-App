@@ -1,0 +1,6 @@
+.user_modal__last_time_online {
+    width: 70%;
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}

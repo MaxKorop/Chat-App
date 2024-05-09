@@ -1,23 +1,23 @@
-import React, { ChangeEvent, useRef, useState } from "react";
-import { Input, InputRef, Modal, Space } from "antd";
+import React, { useRef, useState } from "react";
+import { InputRef, Modal } from "antd";
 import { observer } from "mobx-react-lite";
 import { store } from "../../store/ChatStore";
 import LogIn from "./LogIn/LogIn";
 import SignUp from "./SignUp/SignUp";
 import { logIn, signUp } from "../../http/userAPI";
 
-const UsernameModal: React.FC<{ show: boolean, setShow: (arg0: boolean) => void }> = observer(({ show, setShow }) => {
+const AuthModal: React.FC<{ show: boolean, setShow: (arg0: boolean) => void }> = observer(({ show, setShow }) => {
     const userNameRef = useRef<InputRef>(null);
     const passwordRef = useRef<InputRef>(null);
     const emailRef = useRef<InputRef>(null);
     const [email, setEmail] = useState<string>("");
     const [isLogIn, setIsLogIn] = useState<boolean>(true);
-    const emailRegExp = /^(([^<>()[\]\.,;:\s@\"]+(\.[^<>()[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i
+    // const emailRegExp = /^(([^<>()[\]\.,;:\s@\"]+(\.[^<>()[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i
 
-    const checkAndSetEmail = (value: string) => {
-        console.log(email.match(emailRegExp));
-        setEmail(value);
-    }
+    // const checkAndSetEmail = (value: string) => {
+    //     console.log(email.match(emailRegExp));
+    //     setEmail(value);
+    // }
 
     const auth = async () => {
         if (isLogIn && userNameRef.current && passwordRef.current) {
@@ -59,4 +59,4 @@ const UsernameModal: React.FC<{ show: boolean, setShow: (arg0: boolean) => void 
     )
 });
 
-export default UsernameModal;
+export default AuthModal;

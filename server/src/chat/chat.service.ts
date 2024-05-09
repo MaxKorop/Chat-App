@@ -1,33 +1,35 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Chat } from './chat.schema';
 import { Chat as ChatType } from './chat.type';
 import { Model } from 'mongoose';
 import { CreateChatDto } from './dto/chat.dto';
 import { User } from 'src/user/user.type';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+
 
 @Injectable()
 export class ChatService {
-    constructor(@InjectModel(Chat.name) private chatModel: Model<Chat>) {}
-    
-    chatDtoToChat(dto: CreateChatDto): ChatType {
-        const chatInstance: ChatType = {
-            chatName: dto.chatName,
-            users:  dto.users,
-            details: dto.details,
-            private: dto.private,
-            history: dto.history,
-            createdAt: dto.createdAt
-        };
-        return chatInstance;
-    }
+    constructor(@InjectModel(Chat.name) private chatModel: Model<Chat>, private eventEmitter: EventEmitter2) {}
 
     async createChat(chatDto: CreateChatDto) {
-        const chat = await this.chatModel.findOne({ chatName: chatDto.chatName });
-        if (chat) {
-            throw new BadRequestException('Chat with this name already exists')
+        if (chatDto.chatName !== null) {
+            const chat = await this.chatModel.findOne({ chatName: chatDto.chatName });
+            if (chat) {
+                throw new BadRequestException('Chat with this name already exists.');
+            }
+        } else {
+            const chat = await this.chatModel.findOne({ users: { $in: chatDto.users } });
+            if (chat) {
+                throw new BadRequestException('Private chat with this user already exists.');
+            }
         }
         const newChat = await this.chatModel.create(chatDto);
+        if (newChat) {
+            this.eventEmitter.emit('chat.created', newChat);
+        } else {
+            throw new InternalServerErrorException('Something went wrong and chat was not created.')
+        }
         return newChat;
     }
 

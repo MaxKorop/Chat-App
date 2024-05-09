@@ -6,7 +6,8 @@ class ChatStore {
 	private _chat: Chat | undefined;
 	private _socket: Socket | null = null;
 	private _user: User | null = null;
-	private _userChats: Chat[] | null = null;
+	private _userChats: Chat[] = [];
+	private _userInfo: User | null = null;
 
 	constructor() {
 		makeAutoObservable(this);
@@ -27,6 +28,10 @@ class ChatStore {
 	get userChats() {
 		return this._userChats;
 	}
+
+	get userInfo() {
+		return this._userInfo;
+	}
 	
 	set chat(newChat) {
 		this._chat = newChat;
@@ -37,10 +42,7 @@ class ChatStore {
 		this._socket?.on("connect", () => console.log("connected"));
 		this._socket?.on("error", (errorMessage: { message: string }) => console.log(errorMessage.message));
 		this._socket?.on("chatMessage", (message: Message) => runInAction(() => this._chat?.history.push(message)));
-		this._socket?.on("chatJoined", ({ chat }) => {
-			console.log(chat)
-			runInAction(() => this._chat = chat)
-		});
+		this._socket?.on("chatJoined", ({ chat }) => runInAction(() => this._chat = chat));
 	}
 
 	set user(userObj) {
@@ -51,8 +53,11 @@ class ChatStore {
 		this._userChats = value;
 	}
 
+	set userInfo(value) {
+		this._userInfo = value;
+	}
+
 	isUserChat() {
-		console.log(this._user?.chats, this._chat?._id);
 		if (this._user?.chats) {
 			return toJS(this._user?.chats).some(chat => chat === this._chat?._id);
 		}
