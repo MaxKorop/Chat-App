@@ -25,10 +25,16 @@ export type Chat = {
 export const isUser = (value: User | Chat): value is User => 'userName' in value;
 
 export type Message = {
-    _id: number
+    _id: string
     payload: string
     sentBy: string
     sentByName: string
     sentAt: Date
     repliedTo?: string
+    type: "Text" | "Image" | "GIF" | "Video" // Type for message
+    status: "Sent" | "Read" // Status of message
+    media?: Buffer // If message.type == Image | GIF | Video
+    readBy: string
+    modified: Boolean
+    translatedFrom?: string
 }

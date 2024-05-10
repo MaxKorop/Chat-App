@@ -11,8 +11,10 @@ const InputMessage: React.FC = observer(() => {
 	const [message, setMessage] = useState<string>("");
 	
 	const sendMessage = useCallback(() => {
-		store.sendMessage(message);
-		setMessage("");
+		if (message.trim().length) {
+			store.sendMessage(message.trim());
+			setMessage("");
+		}
 	}, [message, setMessage]);
 	
 	const callback = useCallback((event: KeyboardEvent) => {

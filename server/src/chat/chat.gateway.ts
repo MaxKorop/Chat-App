@@ -2,7 +2,7 @@ import { ConnectedSocket, MessageBody, OnGatewayConnection, OnGatewayDisconnect,
 import { Server, Socket } from 'socket.io';
 import { CreateMessageDto } from './dto/message.dto';
 import { Message } from './message.type';
-import mongoose, { Model } from 'mongoose';
+import { Model, ObjectId } from 'mongoose';
 import { TransformMessageDto } from 'src/pipes/message-tranform.pipe';
 import { InjectModel } from '@nestjs/mongoose';
 import { Chat } from './chat.schema';
@@ -18,21 +18,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 	private wsConnections: Socket[] = [];
 
 	constructor(@InjectModel(Chat.name) private chatModel: Model<Chat>) {}
-
-	toMessageInstance(dto: CreateMessageDto): Message {
-        const message: Message = {
-            type: dto.type,
-            status: dto.status,
-            payload: dto.payload,
-			sentBy: dto.sentBy,
-			sentByName: dto.sentByName,
-            sentAt: dto.sentAt,
-            repliedTo: dto.repliedTo,
-            modified: dto.modified,
-            translatedFrom: dto.translatedFrom
-        };
-        return message;
-    }
 
 	handleConnection(@ConnectedSocket() client: Socket, ...args: any[]) {
 		this.wsConnections.push(client);
@@ -57,12 +42,36 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 	async joinToChatting(@ConnectedSocket() client: Socket, @MessageBody() { chatId }: { chatId: string }) {
 		// const user = JSON.parse(client.handshake.query.user as string) as User;
 		const chat = await this.chatModel.findById(chatId);
-		if (chat /*&& user.chats.includes(chat._id)*/) {
+		if (chat) {
 			client.join(chat.id);
 			client.emit("chatJoined", { chat: chat.toObject() });
 			client.emit("error", { message: "This user is already connected to this chat" });
 		} else {
 			client.emit("error", { message: "Chat does not exists" });
+		}
+	}
+
+	@SubscribeMessage("messageRead")
+	async readMessage(@ConnectedSocket() client: Socket, @MessageBody() { chatId, messageId }: { chatId: string, messageId: string }) {
+		const chat = await this.chatModel.findById(chatId);
+		const userId = (JSON.parse(client.handshake.query?.user as string) as User)._id;
+		if (chat) {
+			const session = await this.chatModel.startSession();
+			try {
+				const updatedChat = await this.chatModel.findOneAndUpdate(
+					{ _id: chatId, 'history._id': messageId },
+					{ $push: { 'history.$.readBy': userId } },
+					{ session, new: true }
+				);
+				if (updatedChat) {
+					client.emit('readMessage', { chat: updatedChat });
+				}
+				await session.commitTransaction();
+			} catch (err) {
+				await session.abortTransaction();
+				console.error(err);
+			}
+			session.endSession();
 		}
 	}
 }

@@ -3,7 +3,8 @@ import { Message } from "./types"
 import { RefObject } from "react"
 
 export interface MessageProps {
-    message: Message
+    message: Message,
+    setHeightToScroll: Function
 }
 
 export interface LogInComponentProps {
@@ -14,4 +15,8 @@ export interface LogInComponentProps {
 
 export interface SignUpComponentProps extends LogInComponentProps {
     email: RefObject<InputRef>
+}
+
+export interface ChatContentProps {
+    setHeightToScroll: Function
 }

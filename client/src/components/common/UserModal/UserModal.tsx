@@ -11,7 +11,6 @@ const UserModal: React.FC<{ onCancel: Function }> = observer(({ onCancel }) => {
 
     const onClickAdd = async () => {
         const user = await addToFriends(store.userInfo?._id as string);
-        console.log(user);
         store.user = user;
         onCancel();
     }

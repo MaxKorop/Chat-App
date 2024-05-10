@@ -17,12 +17,10 @@
 }
 
 .chat__container {
-    display: flex;
     flex: 1;
     overflow-y: auto;
     scrollbar-width: none;
     scrollbar-gutter: stable;
-    justify-content: flex-end;
 }
 
 .input_message__container {

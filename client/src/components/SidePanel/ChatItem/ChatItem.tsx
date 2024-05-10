@@ -1,10 +1,11 @@
 import { observer } from 'mobx-react-lite';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { store } from '../../../store/ChatStore';
 import { Chat, User, isUser } from '../../../types/types';
 import { LockOutlined, UnlockOutlined, UserOutlined, WechatOutlined } from '@ant-design/icons';
+import { Avatar, Badge } from 'antd';
 import './ChatItem.css';
-import { Avatar } from 'antd';
+import { toJS } from 'mobx';
 
 const ChatItem: React.FC<{ chatOrUser: Chat | User }> = observer(({ chatOrUser }) => {
     // Selecting chat with 'click' from the list
@@ -17,6 +18,19 @@ const ChatItem: React.FC<{ chatOrUser: Chat | User }> = observer(({ chatOrUser }
         fontSize: '20px',
         marginRight: '10px',
         opacity: 0.5
+    }
+    if (!isUser(chatOrUser)) {
+        useEffect(() => {
+            const handleUpdateUnread = (chat: Chat) => {
+                store.countAndUpdateUnreadMessagesForChat(chat);
+            }
+    
+            store.events.on("updateUnreadMessages", handleUpdateUnread);
+    
+            return () => {
+                store.events.off("updateUnreadMessages", handleUpdateUnread);
+            }
+        }, [store.numberOfUnreadMessages]);
     }
 
     if (!isUser(chatOrUser)) {
@@ -31,6 +45,7 @@ const ChatItem: React.FC<{ chatOrUser: Chat | User }> = observer(({ chatOrUser }
                     </div>
                 </div>
                 <div className="chat-item__container-right">
+                    <Badge count={store.numberOfUnreadMessages.find(unread => unread.chatId === chatOrUser._id)?.unreadNumber ?? 0} />
                     <div className="chat-item__private">
                         {chatOrUser.private && chatOrUser.chatName ? <span>Private <UserOutlined /></span> : <span>Group <WechatOutlined /></span>}
                     </div>

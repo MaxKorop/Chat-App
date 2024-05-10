@@ -9,6 +9,7 @@ import './SidePanel.css';
 import UserModal from '../common/UserModal/UserModal';
 import { Button } from 'antd';
 import CreateChatModal from './CreateChat/CreateChat';
+import { toJS } from 'mobx';
 
 const SidePanel: React.FC = observer(() => {
     const [chatList, setChatList] = useState<[]>([]);
@@ -16,7 +17,10 @@ const SidePanel: React.FC = observer(() => {
     const [showChatModal, setShowChatModal] = useState<boolean>(false);
 
     useEffect(() => {
-        getUserChats().then((data: Chat[]) => store.userChats = data);
+        getUserChats().then((data: Chat[]) => {
+            store.userChats = data
+            store.numberOfUnreadMessages = store.countUnreadMessages();
+        });
     }, []);
 
     return (

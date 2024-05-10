@@ -6,8 +6,11 @@ export type User = {
     email: string
     password: string
     aboutMe: string | null
+    friends: ObjectId[]
     chats: ObjectId[]
+    online: boolean
     lastTimeOnline: Date
     hideLastTimeOnline: Boolean
     hideInSearch: Boolean
+    canAddToFriends: boolean
 }
