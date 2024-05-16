@@ -1,8 +1,9 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { User } from './user.schema';
+import { User as UserType } from './user.type';
 import mongoose, { Model } from 'mongoose';
-import { CreateUserDto, LogInUserDto, ResponseUserDto } from './dto/user.dto';
+import { CreateUserDto, LogInUserDto, ResponseUserDto, UpdateUserDto } from './dto/user.dto';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { CreateChatDto } from 'src/chat/dto/chat.dto';
@@ -58,7 +59,7 @@ export class UserService {
         const token = this.jwtService.sign(user, { secret: String(process.env.JWT_SECRET) });
         return { token };
     }
-
+  
     async joinToChat(req: Request, chatId: string) {
         const user = req['user'];
         const findUser = await this.userModel.findById(user?._id);
@@ -103,8 +104,35 @@ export class UserService {
         return (await this.userModel.find({ _id: { $in: user.friends } })).map(friend => new ResponseUserDto(friend.toObject()));
     }
 
+    async getUserName(id: string) {
+        return (await this.userModel.findById(id)).userName;
+    }
+
+    async updateUser(req: Request, newUserDto: UpdateUserDto) {
+        const user: UpdateUserDto = req['user'];
+        if (user.userName !== newUserDto.userName) {
+            const userFromDb = await this.userModel.findOne({ userName: newUserDto.userName });
+            if (userFromDb) {
+                throw new BadRequestException('This username is already taken.');
+            }
+        }
+        const { password, ...updatedUser } = (await this.userModel.findOneAndUpdate({ userName: user.userName }, { $set: { ...newUserDto } }, { new: true })).toObject();
+        const token = this.jwtService.sign(updatedUser, { secret: String(process.env.JWT_SECRET) });
+        return { token };
+    }
+
     async autoAddToChat(chat: CreateChatDto) {
         const { users } = chat;
         await this.userModel.updateMany({ _id: { $in: users } }, { $addToSet: { chats: chat._id } });
+    }
+
+    async userConnect(payload: { user: UserType }) {
+        await this.userModel.findOneAndUpdate({ userName: payload.user.userName }, { $set: { online: true } });
+        return 'OK';
+    }
+
+    async userDisconnect(payload: { user: UserType }) {
+        await this.userModel.findOneAndUpdate({ userName: payload.user.userName }, { $set: { online: false, lastTimeOnline: new Date() } });
+        return 'OK';
     }
 }

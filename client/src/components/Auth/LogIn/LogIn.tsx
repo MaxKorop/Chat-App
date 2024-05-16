@@ -1,5 +1,5 @@
 import { Input, Space, Typography } from "antd";
-import React, { ChangeEvent } from "react";
+import React from "react";
 import { LogInComponentProps } from "../../../types/componentsProps";
 
 const { Title, Link } = Typography;

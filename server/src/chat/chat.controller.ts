@@ -12,13 +12,13 @@ export class ChatController {
     @UseGuards(AuthGuard)
     @Post('create')
     @UsePipes(new ValidationPipe({ transform: true, transformOptions: { exposeDefaultValues: true } }))
-    async createChat(@Body(new TransformChatDto()) createChatDto: CreateChatDto): Promise<Chat | { message: string }> {
+    async createChat(@Body(new TransformChatDto()) createChatDto: CreateChatDto): Promise<Chat> {
         return this.chatService.createChat(createChatDto);
     }
 
     @UseGuards(AuthGuard)
     @Get('search')
-    async searchChats(@Query('chatName') name: string): Promise<Chat[] | { message: string }> {
+    async searchChats(@Query('chatName') name: string): Promise<Chat[]> {
         return this.chatService.searchChat(name);
     }
 

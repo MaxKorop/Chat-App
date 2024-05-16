@@ -6,7 +6,7 @@ export type UserDocument = HydratedDocument<User>;
 
 @Schema()
 export class User {
-    @Prop({ required: true })
+    @Prop({ required: true, minlength: 2, maxlength: 25 })
     userName: string;
 
     @Prop({ required: true })
@@ -15,7 +15,7 @@ export class User {
     @Prop({ required: true })
     password: string;
 
-    @Prop({ default: "" })
+    @Prop({ default: "", maxlength: 50 })
     aboutMe: string;
 
     @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }] })

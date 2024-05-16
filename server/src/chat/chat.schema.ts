@@ -1,6 +1,5 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { HydratedDocument } from "mongoose";
-import { User } from "../user/user.schema";
 import * as mongoose from "mongoose";
 import { Message } from "src/chat/message.type";
 

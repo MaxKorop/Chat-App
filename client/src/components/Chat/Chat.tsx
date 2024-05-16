@@ -4,7 +4,7 @@ import InputMessage from "./Input/Input";
 import { observer } from "mobx-react-lite";
 import { store } from "../../store/ChatStore";
 import JoinChatButton from "./JoinChatButton/JoinChatButton";
-import ChatInfoHeader from "./ChatInfoHeader/ChatInfoHeader";
+import ChatInfoHeader from "./ChatInfo/ChatInfoHeader";
 
 const Chat: React.FC = observer(() => {
     const [scrollHeight, setScrollHeight] = useState<number>(0);
@@ -26,10 +26,10 @@ const Chat: React.FC = observer(() => {
 
     return (
         <div className="chatting__container">
-            <div className="chat-info-header">
+            <div className="chat_info__header">
                 {store.chat ? <ChatInfoHeader /> : <></>}
             </div>
-            <div ref={chatContainerRef} className="chat__container">
+            <div ref={chatContainerRef} onScroll={() => scrollHeight ? setScrollHeight(0) : null} className="chat__container">
                 <ChatContent setHeightToScroll={setScrollHeight} ref={chatRef} />
             </div>
             <div className="input_message__container">

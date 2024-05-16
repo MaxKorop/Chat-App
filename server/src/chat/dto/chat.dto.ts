@@ -1,7 +1,6 @@
-import { IsArray, IsNotEmpty, Length } from "class-validator";
+import { IsArray, IsNotEmpty, IsString, Length, ValidateIf } from "class-validator";
 import { ObjectId } from "mongoose";
 import { Message } from "../message.type";
-import { Optional } from "@nestjs/common";
 
 export class CreateChatDto {
     _id: string
@@ -10,8 +9,9 @@ export class CreateChatDto {
     @IsArray()
     users: ObjectId[] // Users
 
-    @Optional()
+    @IsString()
     @Length(3, 25)
+    @ValidateIf((obj) => obj.chatName !== null && obj.chatName !== '')
     chatName: string | null
 
     details: string; // About chat
@@ -27,17 +27,17 @@ export class CreateChatDto {
     constructor(
         users: ObjectId[],
         chatName: string | null,
-        history?: Message[],
-        details?: string,
         privateChat?: boolean,
         publicChat?: boolean,
+        details?: string,
+        history?: Message[],
         createdAt?: Date
     ) {
         this.users = users;
         this.chatName = chatName || null;
         this.history = history || [];
         this.details = details || "";
-        this.private = privateChat || false;
+        this.private = privateChat;
         this.public = publicChat || true;
         this.createdAt = createdAt || new Date();
     }

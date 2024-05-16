@@ -2,12 +2,14 @@ import { QuestionCircleOutlined } from "@ant-design/icons";
 import { Avatar, Button, Form, Input, Modal, Select, SelectProps, Space, Switch, Tooltip, message } from "antd";
 import React, { ChangeEvent, useEffect, useState } from "react";
 import './CreateChat.css';
-import { Chat, User } from "../../../types/types";
+import { Chat, MessageError, User, errorMessage } from "../../../types/types";
 import { check, getFriends } from "../../../http/userAPI";
 import { createChat, getUserChats } from "../../../http/chatAPI";
 import { store } from "../../../store/ChatStore";
+import { uiStore } from "../../../store/UIStore";
+import { observer } from "mobx-react-lite";
 
-const CreateChatModal: React.FC<{ show: boolean, onOk: Function }> = ({ show, onOk }) => {
+const CreateChatModal: React.FC = observer(() => {
     const [chatName, setChatName] = useState<string>("");
     const [chatDescription, setChatDescription] = useState<string>("");
     const [privateChat, setPrivateChat] = useState<boolean>(false);
@@ -45,48 +47,54 @@ const CreateChatModal: React.FC<{ show: boolean, onOk: Function }> = ({ show, on
         });
     }
 
-    const error = (payload: string) => {
-        messageApi.open({
-            type: "error",
-            content: payload
-        })
-    }
-
     const createAndSaveChat = async () => {
         if (!friends.length && !publicChat) {
-            error("Chat must have at least one friend when not public!");
+            errorMessage("Chat must have at least one friend when not public!", messageApi);
             return;
         } else if (!chatName.length && !privateChat) {
-            error("Chat must have name!");
+            errorMessage("Chat must have name!", messageApi);
             return;
         } else if (store.user) {
             const chat = {
                 'chatName': chatName,
                 'details': chatDescription,
-                'private': privateChat,
+                'privateChat': privateChat,
                 'public': publicChat,
                 'users': [store.user._id, ...friends]
             }
-            const createdChat = await createChat(chat);
-            const user = await check();
-            const data: Chat[] = await getUserChats();
-            store.user = user;
-            store.userChats = data;
-            store.joinChat(createdChat._id);
-            onOk();
+            try {
+                const createdChat = await createChat(chat);
+                const user = await check();
+                const data: Chat[] = await getUserChats();
+                store.user = user;
+                store.userChats = data;
+                store.joinChat(createdChat._id);
+                uiStore.showCreateChat = false;
+            } catch (error) {
+                if (error instanceof MessageError) {
+                    errorMessage(error.message, messageApi);
+                }
+            }
         }
     }
 
     useEffect(() => {
-        getUserFriends();
+        try {
+            getUserFriends();
+        } catch (error) {
+            if (error instanceof MessageError) {
+                errorMessage(error.message, messageApi);
+            }
+        }
     }, []);
 
     return (
         <>
             {contextHolder}
             <Modal
+                destroyOnClose
                 title="Create new chat"
-                open={show}
+                open={uiStore.showCreateChat}
                 footer={
                     <Button
                         type="primary"
@@ -95,7 +103,7 @@ const CreateChatModal: React.FC<{ show: boolean, onOk: Function }> = ({ show, on
                         Create chat
                     </Button>
                 }
-                onCancel={() => onOk()}
+                onCancel={() => uiStore.showCreateChat = false}
             >
                 <Form>
                     <Space size={'large'} direction="vertical" style={{ width: '100%' }}>
@@ -126,7 +134,7 @@ const CreateChatModal: React.FC<{ show: boolean, onOk: Function }> = ({ show, on
                                 <Tooltip title="This switch means that your chat will be private (between two people) or not (between many people)">
                                     <QuestionCircleOutlined />
                                 </Tooltip>
-                                <span style={{marginLeft: 5}}>Chat private:</span>
+                                <span style={{ marginLeft: 5 }}>Chat private:</span>
                             </div>
                             <Switch value={privateChat} onChange={() => changePrivateChat()} />
                         </div>
@@ -135,7 +143,7 @@ const CreateChatModal: React.FC<{ show: boolean, onOk: Function }> = ({ show, on
                                 <Tooltip title="This switch means that your chat will be public (show in search) or not (do not show in search, only add users manually or by link)">
                                     <QuestionCircleOutlined />
                                 </Tooltip>
-                                <span style={{marginLeft: 5}}>Chat public:</span>
+                                <span style={{ marginLeft: 5 }}>Chat public:</span>
                             </div>
                             <Switch value={publicChat} onChange={() => changePublicChat()} />
                         </div>
@@ -145,7 +153,7 @@ const CreateChatModal: React.FC<{ show: boolean, onOk: Function }> = ({ show, on
                                 mode={privateChat ? undefined : "multiple"}
                                 allowClear
                                 placeholder="Select friends that will be added to this chat"
-                                onChange={(e) => setFriends(e)}
+                                onChange={(e) => privateChat ? setFriends(prev => [...prev, e]) : setFriends(e)}
                                 options={generateOptions()}
                                 optionRender={(option) => (
                                     <div>
@@ -161,6 +169,6 @@ const CreateChatModal: React.FC<{ show: boolean, onOk: Function }> = ({ show, on
             </Modal>
         </>
     )
-};
+});
 
 export default CreateChatModal;

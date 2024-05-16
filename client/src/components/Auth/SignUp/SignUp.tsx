@@ -1,5 +1,5 @@
 import { Input, Space, Typography } from "antd";
-import React, { ChangeEvent } from "react";
+import React from "react";
 import { SignUpComponentProps } from "../../../types/componentsProps";
 
 const { Title, Link } = Typography;
@@ -15,18 +15,18 @@ const SignUp: React.FC<SignUpComponentProps> = ({ userName, password, setIsLogin
         >
             <Title level={4} >Sign Up</Title>
             <Input
-                placeholder="Type your name here..."
-                style={{
-                    width: "100%"
-                }}
-                ref={userName}
-            />
-            <Input
                 placeholder="Type your email here..."
                 style={{
                     width: "100%"
                 }}
                 ref={email}
+            />
+            <Input
+                placeholder="Type your name here..."
+                style={{
+                    width: "100%"
+                }}
+                ref={userName}
             />
             <Input.Password
                 placeholder="Type your password here..."

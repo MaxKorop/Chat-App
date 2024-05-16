@@ -1,6 +1,8 @@
 import { Transform } from "class-transformer";
 import { IsNotEmpty, IsOptional } from "class-validator";
+import { ObjectId } from "mongodb";
 import { Schema } from "mongoose"
+import { ImageType } from "src/image/image.type";
 import { v4 } from 'uuid';
 
 export class CreateMessageDto {
@@ -17,7 +19,7 @@ export class CreateMessageDto {
     payload: string; // Message information
 
     @IsOptional()
-    media: Buffer; // If message.type == Image | GIF | Video
+    media: Schema.Types.ObjectId[]; // If message.type == Image | GIF | Video
 
     @IsNotEmpty()
     sentBy: Schema.Types.ObjectId; // User
@@ -45,10 +47,10 @@ export class CreateMessageDto {
         sentBy: Schema.Types.ObjectId,
         sentByName: string,
         readBy: Schema.Types.ObjectId[],
-        media: Buffer = null,
+        repliedTo?: Schema.Types.ObjectId,
+        media: Schema.Types.ObjectId[] = [],
         type?: "Text" | "Image" | "GIF" | "Video",
         status?: "Sent" | "Read",
-        repliedTo?: Schema.Types.ObjectId,
         sentAt?: Date,
         modified?: Boolean,
         translatedFrom?: Schema.Types.ObjectId
@@ -62,7 +64,7 @@ export class CreateMessageDto {
         this.type = type ?? "Text";
         this.status = status ?? "Sent";
         this.repliedTo = repliedTo ?? null;
-        this.sentAt = sentAt ?? new Date(new Date().toString().slice(0, new Date().toString().length - 42));
+        this.sentAt = sentAt ?? new Date();
         this.modified = modified ?? false;
         this.translatedFrom = translatedFrom ?? null;
     }

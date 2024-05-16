@@ -50,10 +50,35 @@ class ChatStore {
 		this._socket?.on("error", (errorMessage: { message: string }) => console.error(errorMessage.message));
 		this._socket?.on("chatMessage", (message: Message) => runInAction(() => this._chat?.history.push(message)));
 		this._socket?.on("chatJoined", ({ chat }) => runInAction(() => this._chat = chat));
-		this._socket?.on('readMessage', ({ chat }: { chat: Chat }) => runInAction(() => {
+		this._socket?.on("readMessage", ({ chat }: { chat: Chat }) => runInAction(() => {
 			this._chat = chat;
 			this.events.emit("updateUnreadMessages", chat);
 		}));
+		this._socket?.on("deletedMessage", ({ chatId, messageId }) => {
+			runInAction(() => {
+				if (chatId !== this._chat?._id) {
+					const chat = this._userChats.find(chat => chat._id === chatId) as Chat;
+					chat.history = chat.history.filter(message => message._id !== messageId);
+					this._userChats = this._userChats.map(userChat => userChat._id !== chat._id ? userChat : chat);
+					this.events.emit("updateUnreadMessages", chat);
+				} else if (this._chat) {
+					this._chat.history = this._chat.history.filter(message => message._id !== messageId);
+					this.events.emit("updateUnreadMessages", this._chat);
+				}
+			})
+		});
+		this._socket?.on('editedMessage', ({ chatId, message }: { chatId: string, message: Message }) => {
+			runInAction(() => {
+				if (chatId !== this._chat?._id) {
+					const chat = this._userChats.find(chat => chat._id === chatId) as Chat;
+					chat.history = chat.history.map(chatMessage => chatMessage._id === message._id ? message : chatMessage);
+					this.events.emit("updateUnreadMessages", chat);
+				} else if (this._chat) {
+					this._chat.history = this._chat.history.map(chatMessage => chatMessage._id === message._id ? message : chatMessage);
+					this.events.emit("updateUnreadMessages", this._chat);
+				}
+			});
+		});
 	}
 
 	set user(userObj) {
@@ -97,12 +122,20 @@ class ChatStore {
 		}
 	}
 	
-	sendMessage(payload: string) {
-		this._socket?.emit("send", { chatId: this._chat?._id,  message: { payload, sentBy: this.user?._id, sentByName: this.user?.userName, readBy: [this._user?._id] } });
+	sendMessage(payload: string, repliedTo: string | null = null, media: string[] = []) {
+		this._socket?.emit("send", { chatId: this._chat?._id,  message: { payload, sentBy: this.user?._id, sentByName: this.user?.userName, readBy: [this._user?._id], repliedTo, media } });
 	}
 
 	joinChat(chatId: string) {
 		this._socket?.emit("joinChat", { chatId });
+	}
+
+	deleteMessage(messageId: string) {
+		this._socket?.emit("deleteMessage", { chatId: this._chat?._id, messageId });
+	}
+
+	editMessage(messageId: string, newPayload: string) {
+		this._socket?.emit("editMessage", { chatId: this._chat?._id, messageId, newPayload });
 	}
 }
 

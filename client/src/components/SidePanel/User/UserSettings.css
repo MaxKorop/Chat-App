@@ -1,0 +1,11 @@
+.user_settings__container-title {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.user_settings__container-email {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}

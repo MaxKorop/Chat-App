@@ -1,10 +1,11 @@
 import { Exclude } from "class-transformer"
-import { IsEmail, IsNotEmpty } from "class-validator"
+import { IsEmail, IsNotEmpty, Length } from "class-validator"
 import mongoose from "mongoose"
 import { User } from "../user.schema"
 
 export class LogInUserDto {
     @IsNotEmpty()
+    @Length(2, 25)
     userName: string
 
     @IsNotEmpty()
@@ -14,6 +15,20 @@ export class LogInUserDto {
 export class CreateUserDto extends LogInUserDto {
     @IsEmail()
     email: string    
+}
+
+export class UpdateUserDto {
+    @Length(2, 25)
+    userName: string
+
+    @Length(0, 50)
+    aboutMe: string
+
+    hideLastTimeOnline: boolean
+    
+    hideInSearch: boolean
+    
+    canAddToFriends: boolean
 }
 
 export class ResponseUserDto {

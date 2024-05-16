@@ -1,9 +1,10 @@
-import { Body, ClassSerializerInterceptor, Controller, Get, Post, Request, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, ClassSerializerInterceptor, Controller, Get, Post, Put, Query, Request, UseGuards, UseInterceptors } from '@nestjs/common';
 import { UserService } from './user.service';
-import { CreateUserDto, LogInUserDto, ResponseUserDto } from './dto/user.dto';
+import { CreateUserDto, LogInUserDto, ResponseUserDto, UpdateUserDto } from './dto/user.dto';
 import { AuthGuard } from 'src/guards/auth.guard';
 import { OnEvent } from '@nestjs/event-emitter';
 import { CreateChatDto } from 'src/chat/dto/chat.dto';
+import { User } from './user.type';
 
 @Controller('user')
 export class UserController {
@@ -50,6 +51,28 @@ export class UserController {
 	@Get('friends')
 	async getFriends(@Request() req: Request): Promise<ResponseUserDto[]> {
 		return this.userService.getUserFriends(req);
+	}
+
+	@UseGuards(AuthGuard)
+	@Get('userInfo')
+	async getUserName(@Query() query: { id: string }) {
+		return this.userService.getUserName(query.id);	
+	}
+
+	@UseGuards(AuthGuard)
+	@Put('update')
+	async updateUser(@Request() req: Request, @Body() newUser: UpdateUserDto) {
+		return this.userService.updateUser(req, newUser);
+	}
+
+	@OnEvent('user.connect')
+	async userConnect(payload: { user: User }) {
+		this.userService.userConnect(payload);
+	}
+
+	@OnEvent('user.disconnect')
+	async userDisconnect(payload: { user: User }) {
+		this.userService.userDisconnect(payload);
 	}
 
 	@OnEvent('chat.created')

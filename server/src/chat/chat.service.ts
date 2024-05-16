@@ -1,7 +1,6 @@
 import { BadRequestException, Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Chat } from './chat.schema';
-import { Chat as ChatType } from './chat.type';
 import { Model } from 'mongoose';
 import { CreateChatDto } from './dto/chat.dto';
 import { User } from 'src/user/user.type';
@@ -10,7 +9,10 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class ChatService {
-    constructor(@InjectModel(Chat.name) private chatModel: Model<Chat>, private eventEmitter: EventEmitter2) {}
+    constructor(
+        @InjectModel(Chat.name) private chatModel: Model<Chat>,
+        private eventEmitter: EventEmitter2
+    ) { }
 
     async createChat(chatDto: CreateChatDto) {
         if (chatDto.chatName !== null) {
@@ -19,7 +21,7 @@ export class ChatService {
                 throw new BadRequestException('Chat with this name already exists.');
             }
         } else {
-            const chat = await this.chatModel.findOne({ users: { $in: chatDto.users } });
+            const chat = await this.chatModel.findOne({private: true, users: chatDto.users });
             if (chat) {
                 throw new BadRequestException('Private chat with this user already exists.');
             }

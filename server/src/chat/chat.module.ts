@@ -12,7 +12,9 @@ import { JwtModule } from '@nestjs/jwt';
             secret: String(process.env.JWT_SECRET),
             signOptions: { expiresIn: '24h' }
         }),
-        MongooseModule.forFeature([{ name: Chat.name, schema: ChatSchema }])
+        MongooseModule.forFeature([
+            { name: Chat.name, schema: ChatSchema }
+        ])
     ],
     controllers: [ChatController],
     providers: [ChatService, ChatGateway],

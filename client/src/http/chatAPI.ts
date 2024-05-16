@@ -1,36 +1,51 @@
-import { Chat } from "../types/types";
+import { Chat, Image, MessageError } from "../types/types";
 import { $authHost } from ".";
 
 type CreateChatType = {
     'users': string[]
     'chatName': string | null,
     'details': string | null,
-    'private': boolean,
+    'privateChat': boolean,
     'public': boolean,
 }
 
 export const createChat = async (chat: CreateChatType): Promise<Chat> => {
-    if (chat.private) {
-        chat = {
-            ...chat,
-            chatName: null,
-            details: null
+    try {
+        if (chat.privateChat) {
+            chat = {
+                ...chat,
+                chatName: null,
+                details: null
+            }
         }
+        const { data }: { data: Chat } = await $authHost.post('/chat/create', { ...chat });
+        return data;
+    } catch (error: any) {
+        console.error(error.response.data.message);
+        throw new MessageError(error.response.data.message);
     }
-    const { data }: { data: Chat } = await $authHost.post('/chat/create', { ...chat });
-    return data;
 }
 
 export const searchController = new AbortController();
 
-export const searchChats = async (name: string): Promise<Chat[]> => {
-    const { data }: { data: Chat[] } = await $authHost.get('/chat/search', { signal: searchController.signal, params: { chatName: name } });
-    return data;
+export const searchChats = async (name: string) => {
+    try {
+        const { data }: { data: Chat[] } = await $authHost.get('/chat/search', { signal: searchController.signal, params: { chatName: name } });
+        return data;
+    } catch (error: any) {
+        console.error(error.response.data.message);
+        throw new MessageError(error.response.data.message);
+    }
 }
 
 export const getUserChats = async () => {
-    const { data }: { data: Chat[] } = await $authHost.get('/chat/user');
-    return data;
+    try {
+        const { data }: { data: Chat[] } = await $authHost.get('/chat/user');
+        return data;
+    } catch (error: any) {
+        console.error(error.response.data.message);
+        throw new MessageError(error.response.data.message);
+    }
 }
 
 export const joinChat = async (chatId: string): Promise<Chat | null> => {
@@ -39,6 +54,26 @@ export const joinChat = async (chatId: string): Promise<Chat | null> => {
         return data;
     } catch (error: any) {
         console.error(error.response.data.message);
-        return null;
+        throw new MessageError(error.response.data.message);
+    }
+}
+
+export const uploadImages = async (images: FormData) => {
+    try {
+        const { data }: { data: string[] } = await $authHost.post('/image/upload', images);
+        return data;
+    } catch (error: any) {
+        console.error(error.response.data.message);
+        throw new MessageError(error.response.data.message);
+    }
+}
+
+export const getImages = async (id: string[]) => {
+    try {
+        const { data }: { data: Image[] } = await $authHost.get('/image', { params: { id } });
+        return data;
+    } catch (error: any) {
+        console.error(error.response.data.message);
+        throw new MessageError(error.response.data.message);
     }
 }

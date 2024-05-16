@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ConfigProvider } from "antd";
 import AuthModal from "./components/Auth/AuthModal";
 import { THEME } from "./theme";
@@ -10,16 +10,15 @@ import SidePanel from "./components/SidePanel/SidePanel";
 import { toJS } from "mobx";
 import Chat from "./components/Chat/Chat";
 import { check } from "./http/userAPI";
+import { uiStore } from "./store/UIStore";
 
 const App: React.FC = observer(() => {
-	const [showModal, setShowModal] = useState<boolean>(true);
-
 	const checkAuth = useCallback(async () => {
 		if (localStorage.getItem('token')) {
 			const user = await check();
 			if (user) {
 				store.user = user;
-				setShowModal(false);
+				uiStore.showAuthModal = false;
 			}
 		}
 	}, []);
@@ -39,13 +38,13 @@ const App: React.FC = observer(() => {
 			<ConfigProvider
 				theme={THEME}
 			>
-				{!showModal && (
+				{!uiStore.showAuthModal && (
 					<>
 						<SidePanel />
 						<Chat />
 					</>
 				)}
-				<AuthModal show={showModal} setShow={setShowModal} />
+				<AuthModal />
 			</ConfigProvider>
 		</div>
 	)

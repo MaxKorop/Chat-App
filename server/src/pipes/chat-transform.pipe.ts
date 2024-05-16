@@ -6,7 +6,7 @@ import { CreateChatDto } from 'src/chat/dto/chat.dto';
 export class TransformChatDto implements PipeTransform {
     transform(value: any, metadata: ArgumentMetadata) {
         const dto: Chat = value;
-        const defaultValues = new CreateChatDto(dto.users, dto.chatName);
+        const defaultValues = new CreateChatDto(dto.users, dto.chatName, value.privateChat, value.publicChat, dto.details);
 
         return {
             ...dto,

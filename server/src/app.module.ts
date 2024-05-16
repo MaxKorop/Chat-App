@@ -6,6 +6,7 @@ import { UserModule } from './user/user.module';
 import { ChatModule } from './chat/chat.module';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ImageModule } from './image/image.module';
 
 @Module({
     imports: [
@@ -15,7 +16,8 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
             dbName: 'ChatDB'
         }),
         UserModule,
-        ChatModule
+        ChatModule,
+        ImageModule
     ],
     controllers: [AppController],
     providers: [AppService],

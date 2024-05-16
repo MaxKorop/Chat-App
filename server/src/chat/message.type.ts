@@ -1,11 +1,12 @@
 import { Schema } from "mongoose"
+import { ImageType } from "src/image/image.type"
 
 export type Message = {
     _id: string
     type: "Text" | "Image" | "GIF" | "Video" // Type for message
     status: "Sent" | "Read" // Status of message
     payload: string // Message information
-    media?: Buffer // If message.type == Image | GIF | Video
+    media?: Schema.Types.ObjectId[] // Id of Image document
     sentBy: Schema.Types.ObjectId // User
     sentByName: string
     readBy: Schema.Types.ObjectId[]

@@ -1,6 +1,7 @@
 import { $authHost, $host } from ".";
 import { jwtDecode } from "jwt-decode";
-import { User } from "../types/types";
+import { MessageError, UpdateUser, User } from "../types/types";
+import moment from "moment";
 
 export const logIn = async (userName: string, password: string) => {
     try{
@@ -10,7 +11,7 @@ export const logIn = async (userName: string, password: string) => {
     }
     catch (error: any) {
         console.error(error.response.data.message);
-        return null;
+        throw new MessageError(error.response.data.message);
     }
 }
 
@@ -22,7 +23,7 @@ export const signUp = async (userName: string, password: string, email: string) 
     }
     catch (error: any) {
         console.error(error.response.data.message);
-        return null;
+        throw new MessageError(error.response.data.message);
     }
 }
 
@@ -33,7 +34,7 @@ export const check = async () => {
         return jwtDecode(data.token) as User;
     } catch (error: any) {
         console.error(error.response.data.message);
-        return null;
+        throw new MessageError(error.response.data.message);
     }
 }
 
@@ -44,17 +45,27 @@ export const joinUserToChat = async (chatId: string) => {
         return jwtDecode(data.token) as User;
     } catch (error: any) {
         console.error(error.response.data.message);
-        return null;
+        throw new MessageError(error.response.data.message);
+    }
+}
+
+export const getOneUser = async (id: string): Promise<string | null> => {
+    try {
+        const { data }: { data: string } = await $authHost.get('user/userInfo', { params: { id } });
+        return data;
+    } catch (error: any) {
+        console.error(error.response.data.message);
+        throw new MessageError(error.response.data.message);
     }
 }
 
 export const searchUsers = async (userName: string) => {
     try {
-        const { data }: { data: { token: string, error?: string, message?: string, statusCode?: number } } = await $authHost.post('/user/search', { userName });
+        const { data }: { data: User[] } = await $authHost.post('/user/search', { userName });
         return data;
     } catch (error: any) {
         console.error(error.response.data.message);
-        return null;
+        throw new MessageError(error.response.data.message);
     }
 }
 
@@ -65,7 +76,7 @@ export const addToFriends = async (userId: string) => {
         return jwtDecode(data.token) as User;
     } catch (error: any) {
         console.error(error.response.data.message);
-        return null;
+        throw new MessageError(error.response.data.message);
     }
 }
 
@@ -75,6 +86,17 @@ export const getFriends = async () => {
         return data as User[];
     } catch (error: any) {
         console.error(error.response.data.message);
-        return [];
+        throw new MessageError(error.response.data.message);
+    }
+}
+
+export const updateUser = async (user: UpdateUser) => {
+    try {
+        const { data }: { data: { token: string, error?: string, message?: string, statusCode?: number } } = await $authHost.put('user/update', user);
+        localStorage.setItem('token', data.token);
+        return jwtDecode(data.token) as User;
+    } catch (error: any) {
+        console.error(error.response.data.message);
+        throw new MessageError(error.response.data.message);
     }
 }
