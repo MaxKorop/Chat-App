@@ -20,8 +20,11 @@ const InputMessage: React.FC = observer(() => {
 	const sendMessage = useCallback(async () => {
 		if (message.trim().length) {
 			const formData = new FormData();
-			imagesToDisplay.map(image => formData.append('images', image.file));
-			const imagesId = await uploadImages(formData);
+			let imagesId: string[] = [];
+			if (imagesToDisplay.length) {
+				imagesToDisplay.map(image => formData.append('images', image.file));
+				imagesId = await uploadImages(formData);
+			}
 			if (uiStore.replyToMessage) {
 				store.sendMessage(message.trim(), uiStore.replyToMessage, imagesId);
 				uiStore.replyToMessage = '';
@@ -34,8 +37,11 @@ const InputMessage: React.FC = observer(() => {
 			}
 		} else {
 			const formData = new FormData();
-			imagesToDisplay.map(image => formData.append('images', image.file));
-			const imagesId = await uploadImages(formData);
+			let imagesId: string[] = [];
+			if (imagesToDisplay.length) {
+				imagesToDisplay.map(image => formData.append('images', image.file));
+				imagesId = await uploadImages(formData);
+			}
 			if (uiStore.replyToMessage) {
 				store.sendMessage("", uiStore.replyToMessage, imagesId);
 				uiStore.replyToMessage = '';
@@ -72,15 +78,12 @@ const InputMessage: React.FC = observer(() => {
 				bordered
 				itemLayout="horizontal"
 				dataSource={imagesToDisplay}
-				renderItem={(item) => {
-					console.log(toBase64(item.image.buffer))
-					return (
-						<List.Item style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', width: 150 }}>
-							<img src={`data:${item.image.mimetype};base64, ${toBase64(item.image.buffer)}`} alt="upload image" style={{ width: 70, height: 'auto', objectFit: 'cover' }} />
-							<DeleteOutlined onClick={() => deleteFromImages(item)} />
-						</List.Item>
-					)
-				}}
+				renderItem={(item) => 
+					<List.Item style={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', width: 150 }}>
+						<img src={`data:${item.image.mimetype};base64, ${toBase64(item.image.buffer)}`} alt="upload image" style={{ width: 70, height: 'auto', objectFit: 'cover' }} />
+						<DeleteOutlined onClick={() => deleteFromImages(item)} />
+					</List.Item>
+				}
 			/>
 		)
 	}

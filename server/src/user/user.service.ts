@@ -17,39 +17,29 @@ export class UserService {
 
     async logIn(userDto: LogInUserDto): Promise<{ token: string }> {
         const findUser = await this.userModel.findOne({ userName: userDto.userName });
-
         if (!findUser) throw new UnauthorizedException('Invalid credentials.');
-
         const isPasswordMatched = await bcrypt.compare(userDto.password, findUser.password); 
-
         if (!isPasswordMatched) {
             throw new UnauthorizedException('Invalid credentials.');
         }
         const { password, ...user } = findUser.toObject();
         const token = this.jwtService.sign(user, { secret: String(process.env.JWT_SECRET) });
-
         return { token };
     }
 
     async signUp(userDto: CreateUserDto): Promise<{ token: string }> {
         const findUser = await this.userModel.findOne({ userName: userDto.userName });
-
         if (findUser) {
             throw new UnauthorizedException('User with this username already exists.');
         }
-
         const hashedPassword = await bcrypt.hash(userDto.password, 10);
-
         const newUser = await this.userModel.create({
             userName: userDto.userName,
             email: userDto.email,
             password: hashedPassword,
         });
-
         const { password, ...user } = newUser.toObject();
-
         const token = this.jwtService.sign(user, { secret: String(process.env.JWT_SECRET) });
-
         return { token };
     }
 

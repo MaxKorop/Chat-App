@@ -1,0 +1,51 @@
+@startuml
+
+actor User as user
+participant UserController as controller
+participant MongoDB as db
+participant ChatGateway as chat
+
+
+group SignUp
+user -[hidden]-> user
+activate user
+user -> controller : Sign Up
+activate controller
+controller -> controller : Validating
+controller -> db : Save User
+activate db
+db -> db : Saving user
+db -> controller : Return saved user
+deactivate db
+controller -> controller : Generating JWT
+controller -> user : Return JWT
+deactivate controller
+activate user
+user -> user : Saving token in local storage
+user -[hidden]-> user
+deactivate user
+end
+
+activate chat
+user -> chat : "Handshake" (WebSocket)
+activate user
+loop
+    user -> chat : Send message
+    chat -> db : Save message in chat history
+    activate db
+    db -> db : Saving message
+    db -> chat : Saved message
+    deactivate db
+    chat -> user : Return saved message in chat history (to all connected sockets in chat)
+    user -[hidden]-> user
+end
+user -> chat : Disconnect
+deactivate user
+deactivate user
+activate db
+chat -> db : Change online & lasTimeOnline properties of user
+db -> db : Saving changes
+db -[hidden]-> chat
+deactivate db
+
+@enduml

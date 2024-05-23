@@ -1,9 +1,7 @@
 import { Schema } from "mongoose"
-import { ImageType } from "src/image/image.type"
 
 export type Message = {
     _id: string
-    type: "Text" | "Image" | "GIF" | "Video" // Type for message
     status: "Sent" | "Read" // Status of message
     payload: string // Message information
     media?: Schema.Types.ObjectId[] // Id of Image document

@@ -27,7 +27,7 @@ const FriendsList: React.FC = () => {
             <List
                 itemLayout="horizontal"
                 bordered
-                style={{width: '100%'}}
+                style={{ width: '120%' }}
                 dataSource={userFriends}
                 renderItem={(item) => (
                     <List.Item>

@@ -22,7 +22,7 @@ const MessageOperations: React.FC<{ messageId: string, messageSender: string, se
             danger: true,
             action: () => store.deleteMessage(messageId)
         }
-    ] : store.chat?.users.findIndex(userId => userId === store.user?._id) === 0 || store.chat?.private ? [
+    ] : (store.chat?.users && store.user?._id) && (store.chat?.users.findIndex(userId => userId === store.user?._id) === 0 || store.chat?.private) ? [
         {
             title: (<><ImportOutlined /> Reply</>),
             danger: false,

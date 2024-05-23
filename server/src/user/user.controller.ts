@@ -23,13 +23,13 @@ export class UserController {
 
 	@UseGuards(AuthGuard)
 	@Post('check')
-	async check(@Request() req: Request): Promise<any> {
+	async check(@Request() req: Request): Promise<{ token: string }> {
 		return this.userService.check(req);
 	}
 
 	@UseGuards(AuthGuard)
 	@Post('joinToChat')
-	async joinToChat(@Request() req: Request, @Body() body: { chatId: string }) {
+	async joinToChat(@Request() req: Request, @Body() body: { chatId: string }): Promise<{ token: string }> {
 		return this.userService.joinToChat(req, body.chatId);
 	}
 
@@ -42,7 +42,7 @@ export class UserController {
 
 	@UseGuards(AuthGuard)
 	@Post('addFriend')
-	async addFriend(@Request() req: Request, @Body() body: { userId: string }) {
+	async addFriend(@Request() req: Request, @Body() body: { userId: string }): Promise<{ token: string }> {
 		return this.userService.addFriend(req, body.userId);
 	}
 
@@ -55,13 +55,13 @@ export class UserController {
 
 	@UseGuards(AuthGuard)
 	@Get('userInfo')
-	async getUserName(@Query() query: { id: string }) {
+	async getUserName(@Query() query: { id: string }): Promise<string> {
 		return this.userService.getUserName(query.id);	
 	}
 
 	@UseGuards(AuthGuard)
 	@Put('update')
-	async updateUser(@Request() req: Request, @Body() newUser: UpdateUserDto) {
+	async updateUser(@Request() req: Request, @Body() newUser: UpdateUserDto): Promise<{ token: string }> {
 		return this.userService.updateUser(req, newUser);
 	}
 

@@ -1,7 +1,7 @@
 import { ConnectedSocket, MessageBody, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { CreateMessageDto } from './dto/message.dto';
-import mongoose, { Model } from 'mongoose';
+import { Model } from 'mongoose';
 import { TransformMessageDto } from 'src/pipes/message-tranform.pipe';
 import { InjectModel } from '@nestjs/mongoose';
 import { Chat } from './chat.schema';
