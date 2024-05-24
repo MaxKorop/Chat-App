@@ -49,7 +49,7 @@ const AuthModal: React.FC = observer(() => {
             <Modal
                 destroyOnClose
                 closable={false}
-                title="Input your name here to texting with people"
+                title="Authorization"
                 open={uiStore.showAuthModal}
                 footer={(
                     <Button

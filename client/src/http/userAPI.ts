@@ -1,7 +1,6 @@
 import { $authHost, $host } from ".";
 import { jwtDecode } from "jwt-decode";
 import { MessageError, UpdateUser, User } from "../types/types";
-import moment from "moment";
 
 export const logIn = async (userName: string, password: string) => {
     try{
@@ -22,7 +21,7 @@ export const signUp = async (userName: string, password: string, email: string) 
         return jwtDecode(data.token) as User;
     }
     catch (error: any) {
-        console.error(error.response.data.message);
+        console.log(error.response.data.message);
         throw new MessageError(error.response.data.message);
     }
 }
@@ -33,7 +32,7 @@ export const check = async () => {
         localStorage.setItem('token', `Bearer ${data.token}`);
         return jwtDecode(data.token) as User;
     } catch (error: any) {
-        console.error(error.response.data.message);
+        console.log(error.response.data.message);
         throw new MessageError(error.response.data.message);
     }
 }
@@ -44,7 +43,7 @@ export const joinUserToChat = async (chatId: string) => {
         localStorage.setItem('token', `Bearer ${data.token}`);
         return jwtDecode(data.token) as User;
     } catch (error: any) {
-        console.error(error.response.data.message);
+        console.log(error.response.data.message);
         throw new MessageError(error.response.data.message);
     }
 }
@@ -54,7 +53,7 @@ export const getOneUser = async (id: string): Promise<string | null> => {
         const { data }: { data: string } = await $authHost.get('user/userInfo', { params: { id } });
         return data;
     } catch (error: any) {
-        console.error(error.response.data.message);
+        console.log(error.response.data.message);
         throw new MessageError(error.response.data.message);
     }
 }
@@ -64,7 +63,7 @@ export const searchUsers = async (userName: string) => {
         const { data }: { data: User[] } = await $authHost.post('/user/search', { userName });
         return data;
     } catch (error: any) {
-        console.error(error.response.data.message);
+        console.log(error.response.data.message);
         throw new MessageError(error.response.data.message);
     }
 }
@@ -75,7 +74,7 @@ export const addToFriends = async (userId: string) => {
         localStorage.setItem('token', `Bearer ${data.token}`);
         return jwtDecode(data.token) as User;
     } catch (error: any) {
-        console.error(error.response.data.message);
+        console.log(error.response.data.message);
         throw new MessageError(error.response.data.message);
     }
 }
@@ -85,7 +84,7 @@ export const getFriends = async () => {
         const { data }: { data: User[] } = await $authHost.get('/user/friends');
         return data as User[];
     } catch (error: any) {
-        console.error(error.response.data.message);
+        console.log(error.response.data.message);
         throw new MessageError(error.response.data.message);
     }
 }
@@ -96,7 +95,7 @@ export const updateUser = async (user: UpdateUser) => {
         localStorage.setItem('token', data.token);
         return jwtDecode(data.token) as User;
     } catch (error: any) {
-        console.error(error.response.data.message);
+        console.log(error.response.data.message);
         throw new MessageError(error.response.data.message);
     }
 }

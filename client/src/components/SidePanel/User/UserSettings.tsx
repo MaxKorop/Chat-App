@@ -56,6 +56,7 @@ const UserSettings: React.FC = observer(() => {
     const updateUserInfo = async () => {
         try {
             store.user = await updateUser(formUpdatedUser());
+            setEditable(false);
         } catch (error) {
             if (error instanceof MessageError) {
                 errorMessage(error.message, messageApi);
