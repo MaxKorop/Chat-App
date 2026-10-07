@@ -2,16 +2,18 @@
   "name": "chat-app",
   "private": true,
   "scripts": {
-    "dev": "pnpm -r --parallel dev",
+    "dev": "pnpm --filter @chat/shared build && pnpm -r --parallel dev",
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck",
-    "test": "pnpm test:repo && pnpm -r test",
+    "typecheck": "pnpm --filter @chat/shared build && pnpm -r typecheck",
+    "test": "pnpm --filter @chat/shared build && pnpm test:repo && pnpm -r test",
     "test:repo": "node --test \"tooling/**/*.test.mjs\"",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "prepare": "lefthook install"
+    "prepare": "lefthook install",
+    "infra:up": "docker compose up -d postgres s3",
+    "infra:down": "docker compose down"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.3",

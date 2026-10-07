@@ -6,7 +6,7 @@ How to work in this repository. The _why_ behind each decision is in [IMPROVEMEN
 
 - **Node 24** (`.nvmrc`; `nvm use`)
 - **pnpm 12** (the exact version is pinned in `package.json` → `packageManager`)
-- Docker, from Step 5 onwards (Postgres and S3-compatible storage)
+- Docker (Postgres and S3-compatible storage)
 
 ```bash
 pnpm install
@@ -17,7 +17,7 @@ pnpm install
 ```
 apps/web       React + Vite frontend                  (@chat/web)
 apps/api       NestJS backend                         (@chat/api)
-packages/      shared code (arrives in Step 4)
+packages/shared  zod schemas, DTO types, socket contract, utilities   (@chat/shared)
 tooling/       repo-level tests (node:test)
 docs/          plan, this guide, implementation log, diagrams
 ```
@@ -36,6 +36,38 @@ docs/          plan, this guide, implementation log, diagrams
 | `pnpm --filter @chat/web test:watch` | Vitest in watch mode while developing the UI                                  |
 
 Run a command for one package with `pnpm --filter @chat/web <script>`.
+
+### Local infrastructure (Postgres + S3)
+
+```bash
+cp .env.example .env
+```
+
+```bash
+pnpm infra:up
+```
+
+```bash
+pnpm infra:down
+```
+
+Postgres listens on `127.0.0.1:5432` (user, password and database are all `chat`). An S3-compatible store (SeaweedFS) listens on `127.0.0.1:8333`; it requires the credentials `dev` / `dev`, like AWS requires signed requests. Both bind to localhost only.
+
+If a port is taken (check with `lsof -nP -iTCP:5432 -sTCP:LISTEN`), set a different one in the root `.env`, for example `POSTGRES_PORT=5433`, and use the same port in `DATABASE_URL` in `apps/api/.env`. `docker compose down -v` also deletes the data volumes.
+
+Everything in containers, including the apps (needs the Dockerfiles from Step 16):
+
+```bash
+docker compose --profile full up --build
+```
+
+### The shared package must be built
+
+`@chat/shared` is consumed through its built output (`packages/shared/dist`). The root `dev`, `typecheck` and `test` scripts build it first. If you run a single package's script by hand and see "cannot find module '@chat/shared'", build it:
+
+```bash
+pnpm --filter @chat/shared build
+```
 
 ### The frontend talks to the backend through a proxy
 
