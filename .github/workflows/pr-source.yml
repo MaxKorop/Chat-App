@@ -1,0 +1,19 @@
+name: PR source
+
+# main only changes through a pull request from develop
+on:
+  pull_request:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  from-develop:
+    runs-on: ubuntu-latest
+    steps:
+      - if: github.head_ref != 'develop'
+        env:
+          HEAD_REF: ${{ github.head_ref }} # through the environment, never interpolated into the script
+        run: |
+          echo "::error::PRs into main must come from develop (got '$HEAD_REF')"
+          exit 1

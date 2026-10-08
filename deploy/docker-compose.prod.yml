@@ -1,0 +1,39 @@
+# Production stack for ONE EC2 instance. Copied to /opt/chat-app together with deploy.sh and .env
+# (see docs/deployment.md). Secrets come from .env.secrets, which deploy.sh generates from AWS SSM.
+name: chat-app
+
+services:
+  # Caddy: serves the web app, proxies /api and /socket.io to the api, and gets the TLS certificate
+  # when SITE_ADDRESS is a domain. The only service that faces the internet.
+  web:
+    image: ${ECR_REGISTRY}/chat-app-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    ports: ['80:80', '443:443']
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    volumes: [caddy_data:/data]
+    depends_on: [api]
+
+  api:
+    image: ${ECR_REGISTRY}/chat-app-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: [.env, .env.secrets]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: chat
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: chat
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U chat -d chat']
+      interval: 5s
+      retries: 10
+
+volumes:
+  pgdata:
+  caddy_data:

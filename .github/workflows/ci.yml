@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop]
+
+# a newer push to the same branch makes the older run pointless
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # only `prisma generate` needs it during install; the unit tests never connect to a database
+  DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6 # reads "packageManager" from package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm build
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  # the api's integration tests need a real Postgres and S3; docker-compose.yml already describes both
+  api-integration:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://chat:chat@localhost:5432/chat
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @chat/shared build
+      - run: docker compose up -d --wait postgres s3
+      - run: pnpm test:cov # all api tests, with the coverage thresholds enforced
+      - if: failure()
+        run: docker compose logs
+
+  commits:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: >
+          pnpm commitlint
+          --from ${{ github.event.pull_request.base.sha }}
+          --to ${{ github.event.pull_request.head.sha }}
+          --verbose
+
+  # proves that both images still build; nothing is pushed here
+  docker:
+    needs: [checks, api-integration]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build -f apps/api/Dockerfile -t chat-api:ci .
+      - run: docker build -f apps/web/Dockerfile -t chat-web:ci .

@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -78,8 +79,8 @@ describe('Step 1: pnpm monorepo', () => {
   });
 
   it('keeps the sequence diagram in docs/', () => {
-    assert.ok(existsSync(path('docs', 'sequence-diagram.puml')));
-    assert.ok(!existsSync(path('sequence-diagram.puml')));
+    assert.ok(existsSync(path('docs', 'sequence-diagram.md')));
+    assert.ok(!existsSync(path('sequence-diagram.md')));
   });
 
   it('uses pnpm only: no npm/yarn lockfiles anywhere', () => {
@@ -160,7 +161,17 @@ describe('Step 2: shared tooling', () => {
     assert.match(hooks, /pre-commit:/);
     assert.match(hooks, /commit-msg:/);
     assert.match(hooks, /commitlint/);
-    assert.equal(readJson('package.json').scripts.prepare, 'lefthook install');
+    // `prepare` runs on every `pnpm install`, including inside Docker where there is no .git directory
+    assert.equal(readJson('package.json').scripts.prepare, 'node tooling/install-hooks.mjs');
+    const withoutGit = spawnSync('node', [path('tooling', 'install-hooks.mjs')], {
+      cwd: tmpdir(),
+      encoding: 'utf8',
+    });
+    assert.equal(
+      withoutGit.status,
+      0,
+      `install-hooks.mjs must succeed without a .git folder:\n${withoutGit.stderr}`,
+    );
   });
 });
 

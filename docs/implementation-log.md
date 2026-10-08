@@ -37,7 +37,7 @@ Before any implementation, `tooling/repo.test.mjs` was written to describe Steps
 
 **Done**
 
-- `client/` → `apps/web` and `server/` → `apps/api` with `git mv` (history kept); `sequence-diagram.puml` → `docs/`.
+- `client/` → `apps/web` and `server/` → `apps/api` with `git mv` (history kept); `sequence-diagram.puml` → `docs/` (later rewritten as `docs/sequence-diagram.md`, Mermaid).
 - Removed both `package-lock.json`, both boilerplate READMEs and both per-app `.gitignore` files. One root `.gitignore` replaces them.
 - Added `pnpm-workspace.yaml` (workspaces, `catalog:`, `injectWorkspacePackages`), root `package.json` (private, `packageManager`, `engines`), `.nvmrc` (24), `.editorconfig`.
 - Packages renamed to `@chat/web` and `@chat/api`.
@@ -284,9 +284,54 @@ Each is now covered by a test that was seen failing first.
 - **The "New messages" separator is computed once per opened chat**, after the history is loaded and refetched, and stays put while reading.
 - **Read marking only watches other people's messages**, only in a visible tab, and is debounced by 300 ms.
 
-## Notes for upcoming steps
+## Steps 16-19: images, CI, CD and the README
 
-- **Ports:** `DATABASE_URL` in `apps/api/.env.example` uses port 5432. If you changed `POSTGRES_PORT`, change the URL to match.
-- **Step 16:** the api Dockerfile must run `prisma migrate deploy`, and `prisma generate` needs a `DATABASE_URL` while building.
-- **Step 17:** CI needs a Postgres service container and an S3-compatible service (or a SeaweedFS container, started with the identity file `docker/s3.json`) for `test:int` and `test:cov`. After a deployment, run `scripts/ws-smoke.ts` against it.
-- **Step 16:** the web Dockerfile builds with `pnpm --filter @chat/web build`; the static files are served by Caddy, which also proxies `/api` and `/socket.io` (same origin, as in development).
+Done on `feat/deploy-and-docs`. Usage is in [deployment.md](./deployment.md) and the [README](../README.md); this section records what was verified, what went wrong, and where it differs from the plan.
+
+**Test status when these steps were finished**
+
+| Suite                                             | Result                                                             |
+| ------------------------------------------------- | ------------------------------------------------------------------ |
+| `pnpm test:repo`                                  | 83 / 83 (33 new, in `tooling/deploy.test.mjs`)                     |
+| `@chat/shared`, `@chat/api` unit, `@chat/web`     | 65 / 122 / 260 (unchanged)                                         |
+| API integration + coverage, as the CI job runs it | 325 / 325 on the default ports; 99.3 % statements, 97.0 % branches |
+| typecheck, lint, format check, builds             | clean                                                              |
+
+### What was built
+
+- **Step 16.** `apps/api/Dockerfile` (build stage, then `pnpm deploy --prod` into a slim runtime image that runs as the non-root `node` user and applies migrations on start), `apps/web/Dockerfile` (build, then Caddy), `apps/web/Caddyfile` (static files with an SPA fallback, `/api` and `/socket.io` proxied, HSTS, CSP, `nosniff`, no framing), `.dockerignore`.
+- **Step 17.** `ci.yml` with four jobs (`checks`, `api-integration`, `commits`, `docker`) and `pr-source.yml` (only `develop` may be merged into `main`). Actions are pinned to their current major versions, every workflow declares its permissions, and the branch name reaches the guard script through an environment variable, not by interpolation.
+- **Step 18.** `cd.yml` (OIDC, build and push to ECR, deploy through SSM, print the instance's output), `deploy/docker-compose.prod.yml`, `deploy/deploy.sh`, `deploy/env.example` and [deployment.md](./deployment.md).
+- **Step 19.** The README, with seven Mermaid diagrams; `docs/sequence-diagram.md` (Mermaid) replaces the old PlantUML diagram; a screenshot (`docs/images/screenshot.png`, taken with headless Chrome against the stack in Docker).
+
+### Verified for real
+
+- `docker compose --profile full up --build`: the app on http://localhost:8080 with all three security headers, the SPA fallback, the `/api` proxy, a log-in through Caddy, and `scripts/ws-smoke.ts` passing **through Caddy** (so the WebSocket proxy works). The api container runs as `uid=1000(node)` and reports "No pending migrations".
+- The CI `api-integration` job was reproduced locally with the default ports and `docker compose up -d --wait postgres s3`, then `pnpm test:cov`: 325 tests green.
+- `deploy.sh` is tested with a fake `aws` and a fake `docker` on the `PATH`: the secrets file is built correctly (including values with `+`, `/` and `=`), is owner-only, and a missing secret stops the script _before_ anything is restarted.
+- All workflow files parse as YAML, and every Mermaid diagram was rendered with Mermaid 11 in a browser.
+- **Not verified:** the GitHub Actions run itself and the AWS side. They need the repository settings and the AWS account; [deployment.md](./deployment.md) is the checklist.
+
+### Problems found along the way
+
+1. **`pnpm install` failed inside Docker** because the root `prepare` script ran `lefthook install`, which exits with an error when there is no `.git` directory. `prepare` now runs `tooling/install-hooks.mjs`, which skips the hooks outside a git checkout. A repo test runs it in an empty directory.
+2. **The web image installed the whole workspace**, which ran the api's `prisma generate` and failed (no `DATABASE_URL`). It now installs only `@chat/web...`, which is also faster.
+3. **The api container crashed on `docker compose up`**: it started before SeaweedFS accepted connections, and the api (rightly) refuses to start when it cannot reach S3. The `s3` service now has a healthcheck and the api waits for it. The same healthcheck is what makes `docker compose up -d --wait` work in CI.
+4. **The plan's `deploy.sh` could silently write an empty `.env.secrets`**: in a pipeline `aws ... | while read ...` the exit status of the `aws` command is lost. The script now captures the output first (so `set -e` sees a failure) and checks that all four secrets are present.
+5. **Two wrong claims in my first draft of `deployment.md`**, found by checking them against the code: in production the api never creates the bucket (`createBucket` is off), and a failed migration does not leave the old container serving, because `up -d` has already replaced it. Both are corrected.
+
+### Deviations from the plan
+
+- **Mermaid instead of PlantUML in the README.** GitHub renders Mermaid but not `.puml`. The README and `docs/sequence-diagram.md` use Mermaid, and the old `.puml` was rewritten as Mermaid and removed.
+- **An extra CI job, `api-integration`,** runs the 325 API tests with the coverage thresholds against Postgres and S3 started from `docker-compose.yml`. The plan's CI only ran the unit tests, which would have left 203 tests and the coverage gate unenforced.
+- **The runtime image installs `openssl`** (Prisma's migration engine needs it on Alpine) and runs as a non-root user.
+- **`deploy.sh` honours `APP_DIR`** (default `/opt/chat-app`) so it can be tested without root.
+- **The deployment role in `docs/deployment.md` needs no `s3:CreateBucket`.**
+- **Failure output of the deployment is printed** by an extra step in `cd.yml`.
+
+## Notes for the future
+
+- **Run `deploy/deploy.sh` once by hand** the first time (through Session Manager) to see its output before relying on the workflow.
+- **Tighten the CSP** once the bucket's hostname is known: `img-src` currently allows any `https:` host, plus `http://localhost:8333` for the local stack.
+- **The web bundle is one 760 kB chunk.** `React.lazy` for the dialogs is the first thing to try if load time matters.
+- **No automated end-to-end browser test.** The flows were exercised by hand against the real backend (see Steps 12-15).

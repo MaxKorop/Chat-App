@@ -62,7 +62,7 @@ Postgres listens on `127.0.0.1:5432` (user, password and database are all `chat`
 
 If a port is taken (check with `lsof -nP -iTCP:5432 -sTCP:LISTEN`), set a different one in the root `.env`, for example `POSTGRES_PORT=5433`, and use the same port in `DATABASE_URL` in `apps/api/.env`. `docker compose down -v` also deletes the data volumes.
 
-Everything in containers, including the apps (needs the Dockerfiles from Step 16):
+Everything in containers, including the apps (the web app is then served by Caddy on http://localhost:8080, the same way as in production):
 
 ```bash
 docker compose --profile full up --build
@@ -163,6 +163,12 @@ pnpm dev
 
 then open the address Vite prints and log in as `alice`, `bob` or `carol` (password `password123`). Open a second browser profile as another user to see typing, read ticks and presence. To add a shadcn component: `pnpm --filter @chat/web exec shadcn add <name>`.
 
+### What CI checks, and how to run the same checks
+
+Every pull request runs `.github/workflows/ci.yml`: `checks` (`format:check`, `lint`, `build`, `typecheck`, `test`), `api-integration` (all api tests with the coverage thresholds, against Postgres and S3 started from `docker-compose.yml`), `commits` (commitlint over the pull request's commits) and `docker` (both images must build). Pull requests into `main` also run `pr-source.yml`, which rejects any branch except `develop`. Locally, the same commands are the root scripts in the table above; to try the images, `docker compose --profile full up --build`.
+
+Deployment is described in [deployment.md](./deployment.md).
+
 ## Test-first workflow (TDD)
 
 Every change starts with a failing test.
@@ -202,7 +208,7 @@ Allowed scopes: `web`, `api`, `shared`, `db`, `infra`, `ci`, `deps`, `docs`, `re
 
 Branch flow: `feat/*` → pull request into `develop` → pull request from `develop` into `main` (which deploys, from Step 18).
 
-The git hooks are installed by `pnpm install` (the `prepare` script runs `lefthook install`). If they ever go missing, run `pnpm exec lefthook install`.
+The git hooks are installed by `pnpm install` (the `prepare` script runs `tooling/install-hooks.mjs`, which runs `lefthook install` inside a git checkout). If they ever go missing, run `pnpm exec lefthook install`.
 
 ## pnpm specifics worth knowing
 

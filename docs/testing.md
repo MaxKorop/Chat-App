@@ -6,7 +6,7 @@ Every change in this repository starts with a failing test (see "Test-first work
 
 | Layer                 | Where                              | Runner                        | Needs                               | What it proves                                                                                     |
 | --------------------- | ---------------------------------- | ----------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Repository rules      | `tooling/*.test.mjs`               | `node --test`                 | nothing (Docker for compose checks) | the structure, tooling and documentation stay as designed                                          |
+| Repository rules      | `tooling/*.test.mjs`               | `node --test`                 | nothing (Docker for compose checks) | the structure, tooling, Docker images, workflows, deploy script and README stay as designed        |
 | Shared contract       | `packages/shared/src/**/*.test.ts` | Vitest                        | nothing                             | the zod schemas, the socket types and the pure helpers                                             |
 | API unit tests        | `apps/api/src/**/*.spec.ts`        | Vitest, project `unit`        | nothing                             | logic that needs no database: encryption, key ring, guards, packet guard, the gateway's decisions  |
 | API integration tests | `apps/api/src/**/*.int.spec.ts`    | Vitest, project `integration` | Postgres and S3 (`pnpm infra:up`)   | the whole application over real HTTP and real WebSockets                                           |
