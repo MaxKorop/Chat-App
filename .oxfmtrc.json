@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 100,
+  "singleQuote": true,
+  "trailingComma": "all",
+  "sortImports": {},
+  "sortTailwindcss": {},
+  "ignorePatterns": [
+    "pnpm-lock.yaml",
+    "**/dist/**",
+    "**/build/**",
+    "**/generated/**",
+    "**/migrations/**",
+    "docs/IMPROVEMENT_PLAN.md"
+  ]
+}

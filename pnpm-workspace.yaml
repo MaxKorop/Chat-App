@@ -1,0 +1,21 @@
+packages:
+  - apps/*
+  - packages/*
+
+# one version of shared deps across the repo (packages say "catalog:")
+catalog:
+  typescript: ^5.9.3
+  zod: ^4.6.0
+  vitest: ^5.0.0
+  '@types/node': ^24.0.0
+
+# needed by `pnpm deploy` in the api Dockerfile
+injectWorkspacePackages: true
+
+# install scripts are blocked by default; only these dependencies may run them
+allowBuilds:
+  bcrypt: true # native module of the old api (replaced by bcryptjs in Step 7)
+  '@nestjs/core': false # only prints a donation banner
+  core-js: false
+  core-js-pure: false
+  lefthook: false
