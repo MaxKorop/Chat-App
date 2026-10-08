@@ -2,16 +2,20 @@
 
 What has been implemented from [IMPROVEMENT_PLAN.md](./IMPROVEMENT_PLAN.md), how each step was verified, and where reality differed from the plan. The plan is never edited to hide a deviation; this log is where deviations are recorded.
 
-| Step | Title                                   | Status |
-| ---- | --------------------------------------- | ------ |
-| 1    | pnpm monorepo                           | done   |
-| 2    | Shared tooling (oxlint, oxfmt, commits) | done   |
-| 3    | Frontend on Vite + React 19 + Vitest    | done   |
-| 4    | `packages/shared`                       | done   |
-| 5    | Local infrastructure (docker compose)   | done   |
-| 6-19 | everything else                         | todo   |
+| Step  | Title                                     | Status |
+| ----- | ----------------------------------------- | ------ |
+| 1     | pnpm monorepo                             | done   |
+| 2     | Shared tooling (oxlint, oxfmt, commits)   | done   |
+| 3     | Frontend on Vite + React 19 + Vitest      | done   |
+| 4     | `packages/shared`                         | done   |
+| 5     | Local infrastructure (docker compose)     | done   |
+| 6     | Database schema (Prisma, PostgreSQL)      | done   |
+| 7     | Backend foundation (auth, users)          | done   |
+| 8     | Chats, messages, read cursors, encryption | done   |
+| 9     | File storage on S3, attachments           | done   |
+| 10-19 | everything else                           | todo   |
 
-Working branches: `feat/monorepo-tooling-vite` (Steps 1-3, committed) and `feat/shared-and-infra` (Steps 4-5), branched in sequence from `develop` / `main`. The old MongoDB version is tagged `v1-mongo`. Nothing has been pushed.
+Working branches, each started from the previous one: `feat/monorepo-tooling-vite` (Steps 1-3), `feat/shared-and-infra` (Steps 4-5, committed) and `feat/api-rewrite` (Steps 6-9). The old MongoDB version is tagged `v1-mongo`. Nothing has been pushed.
 
 ## How these steps were done (test first)
 
@@ -130,10 +134,73 @@ Before any implementation, `tooling/repo.test.mjs` was written to describe Steps
 - **Host ports are bound to `127.0.0.1` and overridable** with `POSTGRES_PORT`, `S3_PORT` and `WEB_PORT` (root `.env`). The services use default dev passwords, so they should not listen on the network, and on the author's machine 5432 and 3000 are already taken by other containers.
 - The compose `api` service reads `apps/api/.env` as **optional** (`required: false`), so `docker compose config` works on a fresh clone and in CI.
 
+## Steps 6-9: the new backend
+
+These four steps replace the whole MongoDB/Mongoose api. They were done test-first and are described together because they depend on each other. The order inside the batch differed from the plan: **Step 9 (storage) was built before the messages half of Step 8**, because turning a stored message into a response signs its attachment URLs and therefore needs the storage service.
+
+**Test status when these steps were finished**
+
+| Suite                                           | Result    |
+| ----------------------------------------------- | --------- |
+| `pnpm test:repo`                                | 39 / 39   |
+| `@chat/shared` unit tests                       | 65 / 65   |
+| `@chat/api` unit tests (`pnpm test`)            | 92 / 92   |
+| `@chat/api` integration tests (`pnpm test:int`) | 156 / 156 |
+| `@chat/web` tests                               | 7 / 7     |
+| typecheck, lint, format check, build            | clean     |
+
+The integration tests run against a real PostgreSQL (database `chat_test`, created and migrated automatically) and a real S3 (SeaweedFS, bucket `chat-attachments-test`). Nothing in the database or S3 layer is mocked.
+
+### Step 6: database
+
+- `apps/api/prisma/schema.prisma` with six tables (`users`, `friendships`, `chats`, `chat_members`, `messages`, `attachments`), the init migration, `prisma.config.ts`, and `docs/database.md` with an ER diagram.
+- 23 tests describe the schema: unique keys, defaults, every cascade and "set null" rule, and that the migrations and `schema.prisma` do not drift apart.
+
+### Step 7: backend foundation
+
+- Environment validation (`parseEnv`, reports every problem at once), the key-ring parser, `PrismaService`, JWT authentication as a global guard with `@Public()`, the rate limiter, helmet, and the auth and users modules.
+- Validation uses Nest 12's built-in `StandardSchemaValidationPipe` with the shared zod schemas (`@Body({ schema })`), instead of the custom pipe the plan sketched.
+- The old Mongo code, its dependencies, the tsconfig relaxations and the API part of the lint override are gone.
+
+### Step 8: chats, messages, encryption, seed
+
+- Encryption: AES-256-GCM, a key per chat derived with HKDF, the chat id and message id bound into the ciphertext, a key ring with key ids for rotation. 17 tests cover round trips, tampering, moving a ciphertext to another chat or message, and rotation.
+- `ChatsService` (list with unread counts, search, create, join, details, `markRead`) and `MessagesService` (`send`, `edit`, `delete`, `list`). Only the history route is REST; the commands are plain service methods that the WebSocket gateway will call in Step 10, and they announce results with domain events.
+- `pnpm db:seed` fills the development database with demo data. The seed is tested like any other code and refuses to run in production.
+
+### Step 9: storage and attachments
+
+- `StorageService` (upload, signed URLs, batch delete, bucket creation outside production) and `POST /api/attachments`.
+
+### Things the tests caught
+
+Each of these was a failing test before it was a fix:
+
+1. **`prisma@latest` is the 8.0 release candidate.** Stable is 7.10, so Prisma is pinned to `7.10.0` (client and adapter too).
+2. **Prisma's `contains` does not escape SQL wildcards.** Searching for `a_c` also found `abc`, and `%` matched everything, which lets a user enumerate accounts. Fixed with an `escapeLike` helper used by both user and chat search.
+3. **multer reads multipart file names as Latin-1**, which turned `фото.png` into mojibake. Fixed with `defParamCharset: 'utf8'`.
+4. **Attachments lost their upload order**, because files of one request shared a timestamp. Each file now gets its own millisecond.
+5. **Global guards also run for WebSocket handlers.** The throttler and the JWT guard now skip non-HTTP contexts (unit-tested), so the Step 10 gateway will not be rejected by them.
+6. **Behind a reverse proxy every user would have shared one rate limit.** `trust proxy` is enabled in production only, and a test proves `X-Forwarded-For` is ignored otherwise (so it cannot be used to dodge the limit).
+
+### Deviations from the plan
+
+- **NestJS 12, with the app staying CommonJS.** The plan was written for Nest 11. Nest 12 ships ESM-only packages but supports CommonJS apps through `require(esm)`, and migrating our own code to ESM is optional. The compiled server was started and exercised over HTTP, because Vitest (which transforms to ESM) cannot prove that the CommonJS build works.
+- **Vitest was set up for the api at Step 6, not Step 11**, since there is no test-first work without a test runner. Step 11 now only needs the remaining cleanup. Two projects: `unit` (`pnpm test`, no services needed) and `integration` (`pnpm test:int`, needs `pnpm infra:up`).
+- **`PresenceService` (planned for Step 10) was built in Step 7**, because `GET /users/:id` and the friends list report who is online. Its grace-period behaviour is unit-tested with fake timers.
+- **The seed moved from Step 6 to Step 8**: it needs the encryption helper, and its messages must be encrypted like real ones.
+- **Direct chats require friendship**, like the old app (it only offered friends). The plan did not say; without it anyone could start a chat with anyone.
+- **Non-members get `403` for private chats**, and `members: []` plus no messages for a public-group preview, so a member list is for members only.
+- **Mongoose was removed in Step 7**, not Step 6, because the old code that used it was deleted then.
+- **Usernames are unique case-sensitively.** A case-insensitive rule would need a functional index that Prisma's schema cannot express (every `migrate dev` would try to drop it). Recorded in `docs/database.md`.
+- **pnpm build approvals** added: `prisma` and `@prisma/engines` (they download the migration engine). `@swc/core`, `esbuild` and `lefthook` are denied, because their binaries come as optional dependencies, and `bcrypt` was removed together with the native module.
+- **`@types/multer` needed in the api's `types`**, because the tsconfig restricts global types to the ones it lists.
+
 ## Notes for upcoming steps
 
-- **Step 6:** `DATABASE_URL` in `apps/api/.env.example` uses port 5432. If you changed `POSTGRES_PORT`, change the URL to match.
-- **Step 9:** the local S3 requires the `dev` / `dev` credentials, so `StorageService` must pass them to the SDK in development. Creating the bucket on startup works with them (verified with the AWS CLI).
-- **Step 7:** NestJS is now at v12 and TypeScript at v7 (the plan assumed Nest 11). Check peer ranges and decorator-metadata support before choosing versions, then remove the api's legacy tsconfig relaxations and the api part of the oxlint override.
-- **Step 11:** replace `jest --passWithNoTests` with Vitest.
+- **Ports:** `DATABASE_URL` in `apps/api/.env.example` uses port 5432. If you changed `POSTGRES_PORT`, change the URL to match.
+- **Step 10:** build the gateway on top of `ChatsService.markRead` and `MessagesService.send/edit/delete`, listen to the domain events in `common/domain-events.ts`, and write `docs/realtime.md` (the link in `docs/api.md` is plain text until then).
+- **Step 11:** most of it is already done (Vitest, unit and integration tests); what remains is the gateway and packet-guard tests.
+- **Step 16:** the api Dockerfile must run `prisma migrate deploy`, and `prisma generate` needs a `DATABASE_URL` while building.
+- **Step 17:** CI needs a Postgres service container and an S3-compatible service (or a SeaweedFS container) for `test:int`.
 - **Step 14:** delete the web part of the oxlint override, antd and the `.css` files.

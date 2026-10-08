@@ -15,12 +15,12 @@ const readJson = (...p) => JSON.parse(read(...p));
 const readJsonc = (...p) => JSON.parse(read(...p).replace(/^\s*\/\/.*$/gm, ''));
 
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'coverage']);
-function findFiles(dir, name, found = []) {
+function findFiles(dir, name, found = [], pattern = null) {
   for (const entry of readdirSync(dir)) {
     if (SKIP_DIRS.has(entry)) continue;
     const full = join(dir, entry);
-    if (statSync(full).isDirectory()) findFiles(full, name, found);
-    else if (entry === name) found.push(full);
+    if (statSync(full).isDirectory()) findFiles(full, name, found, pattern);
+    else if (pattern ? pattern.test(entry) : entry === name) found.push(full);
   }
   return found;
 }
@@ -28,6 +28,7 @@ function findFiles(dir, name, found = []) {
 const lint = (message) =>
   spawnSync('pnpm', ['exec', 'commitlint'], { cwd: root, input: message, encoding: 'utf8' });
 const web = (...p) => path('apps', 'web', ...p);
+const api = (...p) => path('apps', 'api', ...p);
 const shared = (...p) => path('packages', 'shared', ...p);
 const compose = (...args) =>
   spawnSync('docker', ['compose', ...args], { cwd: root, encoding: 'utf8' });
@@ -378,5 +379,130 @@ describe('Step 5: local infrastructure', () => {
     const { scripts } = readJson('package.json');
     assert.match(scripts['infra:up'], /docker compose up -d postgres s3/);
     assert.match(scripts['infra:down'], /docker compose down/);
+  });
+});
+
+describe('Step 6: database schema', () => {
+  it('keeps the Prisma schema with a committed migration history', () => {
+    assert.ok(existsSync(api('prisma', 'schema.prisma')));
+    assert.ok(existsSync(api('prisma.config.ts')));
+    const migrations = readdirSync(api('prisma', 'migrations'));
+    assert.ok(
+      migrations.some((m) => m.endsWith('_init')),
+      'the init migration is missing',
+    );
+    assert.ok(migrations.includes('migration_lock.toml'));
+  });
+
+  it('does not commit the generated Prisma client', () => {
+    assert.equal(ignored('apps/api/src/generated/prisma/client.ts'), true);
+  });
+
+  it('documents every table in docs/database.md as a Mermaid ER diagram', () => {
+    const doc = read('docs', 'database.md');
+    assert.match(doc, /```mermaid\s+erDiagram/);
+    const schema = readFileSync(api('prisma', 'schema.prisma'), 'utf8');
+    const tables = [...schema.matchAll(/@@map\("(\w+)"\)/g)].map((m) => m[1]);
+    assert.equal(tables.length, 6);
+    for (const table of tables) {
+      assert.match(doc, new RegExp(`\\b${table}\\b`), `docs/database.md does not mention ${table}`);
+    }
+  });
+});
+
+describe('Step 7: legacy Mongo api is gone', () => {
+  it('no longer depends on Mongo, Passport, class-validator, bcrypt or uuid', () => {
+    const deps = allDependencies(readJson('apps', 'api', 'package.json'));
+    const banned =
+      /^(mongoose|mongodb|@nestjs\/(mongoose|passport|config|mapped-types)|passport.*|class-validator|class-transformer|bcrypt|jsonwebtoken|uuid)$/;
+    assert.deepEqual(
+      deps.filter((d) => banned.test(d)),
+      [],
+    );
+    for (const needed of [
+      '@prisma/client',
+      'bcryptjs',
+      'helmet',
+      '@nestjs/throttler',
+      '@nestjs/event-emitter',
+    ]) {
+      assert.ok(deps.includes(needed), `${needed} should be installed`);
+    }
+  });
+
+  it('documents in .env.example every variable that env.ts validates', () => {
+    const schema = read('apps', 'api', 'src', 'config', 'env.ts');
+    const validated = [...schema.matchAll(/^\s{4}([A-Z][A-Z0-9_]+):/gm)].map((m) => m[1]);
+    assert.ok(validated.length >= 10, 'could not find the variables in env.ts');
+    const documented = read('apps', 'api', '.env.example')
+      .split('\n')
+      .map((line) => line.match(/^([A-Z][A-Z0-9_]+)=/)?.[1]);
+    for (const name of validated) {
+      assert.ok(
+        documented.includes(name),
+        `${name} is validated in env.ts but missing from apps/api/.env.example`,
+      );
+    }
+  });
+
+  it('exposes the integration tests and the seed from the root', () => {
+    const { scripts } = readJson('package.json');
+    assert.match(scripts['test:int'], /@chat\/api test:int/);
+    assert.match(scripts['db:seed'], /@chat\/api db:seed/);
+    assert.match(scripts['db:migrate'], /@chat\/api db:migrate/);
+  });
+
+  it('deleted the old source folders', () => {
+    for (const dir of ['chat', 'image', 'user', 'pipes', 'guards', 'strategies']) {
+      assert.ok(
+        !existsSync(api('src', dir)),
+        `apps/api/src/${dir} is legacy and should be deleted`,
+      );
+    }
+  });
+
+  it('compiles under the strict base config without the legacy relaxations', () => {
+    const tsconfig = read('apps', 'api', 'tsconfig.json');
+    for (const flag of [
+      'strictNullChecks',
+      'noImplicitAny',
+      'strictBindCallApply',
+      'noImplicitOverride',
+    ]) {
+      assert.ok(!tsconfig.includes(flag), `${flag} relaxation should be removed`);
+    }
+    assert.equal(readJsonc('apps', 'api', 'tsconfig.json').extends, '../../tsconfig.base.json');
+  });
+
+  it('has no lint overrides left for api code', () => {
+    const overrides = JSON.stringify(readJsonc('.oxlintrc.json').overrides ?? []);
+    assert.ok(!overrides.includes('apps/api'), 'delete the api paths from the legacy override');
+  });
+});
+
+describe('API documentation', () => {
+  /** every "METHOD /api/path" declared by a controller, found by reading the source */
+  function routesInControllers() {
+    const routes = [];
+    for (const file of findFiles(api('src'), null, [], /\.controller\.ts$/)) {
+      const source = readFileSync(file, 'utf8');
+      const prefix = source.match(/@Controller\('([^']*)'\)/)?.[1] ?? '';
+      for (const [, verb, subpath] of source.matchAll(
+        /@(Get|Post|Patch|Put|Delete)\((?:'([^']*)')?\)/g,
+      )) {
+        const path = ['/api', prefix, subpath].filter(Boolean).join('/');
+        routes.push(`${verb.toUpperCase()} ${path}`);
+      }
+    }
+    return routes;
+  }
+
+  it('lists every REST route of the api in docs/api.md', () => {
+    const routes = routesInControllers();
+    assert.ok(routes.length >= 15, `expected to find the api routes, found ${routes.length}`);
+    const doc = read('docs', 'api.md');
+    for (const route of routes) {
+      assert.ok(doc.includes(`\`${route}\``), `docs/api.md does not document \`${route}\``);
+    }
   });
 });
