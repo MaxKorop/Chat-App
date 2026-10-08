@@ -22,6 +22,7 @@ describe('storageConfigFromEnv', () => {
       credentials: { accessKeyId: 'dev', secretAccessKey: 'dev' },
       forcePathStyle: true, // custom endpoints have no per-bucket DNS names
       createBucket: true,
+      requestTimeoutMs: 30_000,
     });
   });
 

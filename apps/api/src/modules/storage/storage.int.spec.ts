@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { createServer, type Socket } from 'node:net';
 
 import { DeleteBucketCommand, HeadBucketCommand, S3Client } from '@aws-sdk/client-s3';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -47,6 +48,43 @@ describe('StorageService', () => {
     await expect(
       admin.send(new HeadBucketCommand({ Bucket: `never-created-${randomUUID()}-test` })),
     ).rejects.toBeDefined();
+  });
+
+  it('does not paper over real problems: with wrong credentials startup fails instead of creating a bucket', async () => {
+    const wrong = new StorageService({
+      ...config,
+      bucket: `wrong-credentials-${randomUUID()}-test`,
+      credentials: { accessKeyId: 'hacker', secretAccessKey: 'nope' },
+    });
+    await expect(wrong.onModuleInit()).rejects.toBeDefined();
+    wrong.onModuleDestroy();
+    await expect(
+      admin.send(new HeadBucketCommand({ Bucket: wrong['config'].bucket })),
+    ).rejects.toBeDefined(); // nothing was created
+  });
+
+  it('gives up on an S3 that accepts connections but never answers, instead of hanging the caller', async () => {
+    // a server that listens and says nothing, like a half-dead storage node
+    const open = new Set<Socket>();
+    const silent = createServer((socket) => void open.add(socket));
+    await new Promise<void>((resolve) => silent.listen(0, '127.0.0.1', resolve));
+    const { port } = silent.address() as { port: number };
+    const stuck = new StorageService({
+      ...config,
+      endpoint: `http://127.0.0.1:${port}`,
+      publicEndpoint: `http://127.0.0.1:${port}`,
+      createBucket: false,
+      requestTimeoutMs: 300,
+    });
+    try {
+      const started = Date.now();
+      await expect(stuck.upload(key(), Buffer.from('x'), 'text/plain')).rejects.toBeDefined();
+      expect(Date.now() - started).toBeLessThan(8_000);
+    } finally {
+      stuck.onModuleDestroy();
+      for (const socket of open) socket.destroy(); // a server only closes once its connections are gone
+      await new Promise((resolve) => silent.close(resolve));
+    }
   });
 
   it('stores an object and hands out a URL that works without any credentials', async () => {

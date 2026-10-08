@@ -10,5 +10,5 @@
     "incremental": true,
     "types": ["node", "multer"]
   },
-  "include": ["src", "prisma.config.ts", "vitest.config.mts", "prisma/**/*.ts"]
+  "include": ["src", "prisma.config.ts", "vitest.config.mts", "prisma/**/*.ts", "scripts/**/*.ts"]
 }

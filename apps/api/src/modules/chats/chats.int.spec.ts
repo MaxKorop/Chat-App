@@ -483,3 +483,57 @@ describe('ChatsService (used by the realtime layer)', () => {
     });
   });
 });
+
+describe('edge cases', () => {
+  it('lets someone create a group with nobody else in it', async () => {
+    const me = await createUser(t.prisma);
+    const res = await t
+      .http()
+      .post('/api/chats')
+      .set(t.auth(me))
+      .send({ type: 'GROUP', name: 'Just me', isPublic: true, memberIds: [] })
+      .expect(201);
+    expect(res.body.members).toHaveLength(1);
+    expect(res.body.members[0]).toMatchObject({ userId: me.id, role: 'OWNER' });
+  });
+
+  it('names a direct chat "Deleted user" after the other person deleted their account', async () => {
+    const [me, gone] = [await createUser(t.prisma), await createUser(t.prisma)];
+    await createDirectChat(t.prisma, me, gone);
+    await t.prisma.user.delete({ where: { id: gone.id } });
+    const list = (await t.http().get('/api/chats').set(t.auth(me)).expect(200)).body;
+    expect(list.map((c: { title: string }) => c.title)).toEqual(['Deleted user']);
+  });
+
+  it('shows an empty preview for a message that has neither text nor files', async () => {
+    const me = await createUser(t.prisma);
+    const chat = await createGroup(t.prisma, me);
+    await addMessage(t, chat.id, me.id, null);
+    expect(
+      (await t.http().get('/api/chats').set(t.auth(me)).expect(200)).body[0].lastMessage.preview,
+    ).toBe('');
+  });
+
+  it('two people starting the same direct chat at the same moment end up in ONE chat', async () => {
+    const [a, b] = [await createUser(t.prisma), await createUser(t.prisma)];
+    await befriend(t.prisma, a.id, b.id);
+    const service = t.app.get(ChatsService);
+
+    const [fromA, fromB] = await Promise.all([
+      service.create(a.id, { type: 'DIRECT', userId: b.id }),
+      service.create(b.id, { type: 'DIRECT', userId: a.id }),
+    ]);
+    expect(fromA.chat.id).toBe(fromB.chat.id);
+    expect([fromA.created, fromB.created].toSorted()).toEqual([false, true]); // exactly one of them created it
+    expect(await t.prisma.chat.count()).toBe(1);
+    expect(await t.prisma.chatMember.count()).toBe(2);
+  });
+
+  it('does not hide an unexpected database error behind "already a member"', async () => {
+    const [me, owner] = [await createUser(t.prisma), await createUser(t.prisma)];
+    const chat = await createGroup(t.prisma, owner, [], { isPublic: true });
+    vi.spyOn(t.prisma.chatMember, 'create').mockRejectedValue(new Error('deadlock detected'));
+    await t.http().post(`/api/chats/${chat.id}/join`).set(t.auth(me)).expect(500);
+    expect(emit).not.toHaveBeenCalledWith(DomainEvents.ChatMembersChanged, expect.anything());
+  });
+});

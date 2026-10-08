@@ -14,6 +14,7 @@ import { ChatsModule } from './modules/chats/chats.module';
 import { CryptoModule } from './modules/crypto/crypto.module';
 import { MessagesModule } from './modules/messages/messages.module';
 import { PresenceModule } from './modules/presence/presence.module';
+import { RealtimeModule } from './modules/realtime/realtime.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { UsersModule } from './modules/users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -36,6 +37,7 @@ import { PrismaModule } from './prisma/prisma.module';
     ChatsModule,
     MessagesModule,
     AttachmentsModule,
+    RealtimeModule,
   ],
   providers: [
     // validates every `@Body({ schema })`, `@Query({ schema })` and `@Param(…, { schema })` with zod

@@ -11,6 +11,8 @@ export type StorageConfig = {
   credentials: { accessKeyId: string; secretAccessKey: string } | undefined;
   forcePathStyle: boolean;
   createBucket: boolean;
+  /** the AWS SDK waits forever by default; an unresponsive S3 must not hang uploads */
+  requestTimeoutMs: number;
 };
 
 type StorageEnv = {
@@ -35,5 +37,6 @@ export function storageConfigFromEnv(env: StorageEnv): StorageConfig {
         : undefined,
     forcePathStyle: env.S3_ENDPOINT !== undefined, // a custom endpoint has no DNS name per bucket
     createBucket: env.NODE_ENV !== 'production', // in production the bucket is created once, by hand
+    requestTimeoutMs: 30_000,
   };
 }

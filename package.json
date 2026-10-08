@@ -16,7 +16,8 @@
     "infra:down": "docker compose down",
     "test:int": "pnpm --filter @chat/api test:int",
     "db:migrate": "pnpm --filter @chat/api db:migrate",
-    "db:seed": "pnpm --filter @chat/api db:seed"
+    "db:seed": "pnpm --filter @chat/api db:seed",
+    "test:cov": "pnpm --filter @chat/api test:cov"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.3",

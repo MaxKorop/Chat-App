@@ -1,5 +1,5 @@
 import { meSchema } from '@chat/shared';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestApp, createUser, TEST_PASSWORD, type TestApp } from '../../test/app';
 
@@ -188,5 +188,16 @@ describe('security headers', () => {
     const res = await t.http().get('/api/auth/me');
     expect(res.headers['x-content-type-options']).toBe('nosniff');
     expect(res.headers['x-powered-by']).toBeUndefined();
+  });
+});
+
+describe('when the database misbehaves', () => {
+  it('answers 500 with a generic message and does not leak what went wrong', async () => {
+    vi.spyOn(t.prisma.user, 'create').mockRejectedValue(
+      new Error('connection to 10.0.0.5:5432 refused (password=hunter2)'),
+    );
+    const res = await t.http().post('/api/auth/sign-up').send(signUpBody).expect(500);
+    expect(res.body).toEqual({ statusCode: 500, message: 'Internal server error' });
+    expect(JSON.stringify(res.body)).not.toMatch(/10\.0\.0\.5|hunter2/);
   });
 });

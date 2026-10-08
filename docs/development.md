@@ -27,19 +27,20 @@ docs/          plan, this guide, implementation log, diagrams
 
 ## Everyday commands (run from the repo root)
 
-| Command                              | What it does                                                                  |
-| ------------------------------------ | ----------------------------------------------------------------------------- |
-| `pnpm dev`                           | starts every app in watch mode (`vite` for web, `nest start --watch` for api) |
-| `pnpm build`                         | builds every package                                                          |
-| `pnpm test`                          | repo tests (`tooling/`) + every package's tests                               |
-| `pnpm test:repo`                     | only the repo-level tests                                                     |
-| `pnpm test:int`                      | api integration tests against real Postgres and S3 (needs `pnpm infra:up`)    |
-| `pnpm db:migrate`                    | create and apply a migration after editing `schema.prisma`                    |
-| `pnpm db:seed`                       | fill the development database with demo data (see below)                      |
-| `pnpm typecheck`                     | `tsc --noEmit` in every package                                               |
-| `pnpm lint` / `pnpm lint:fix`        | oxlint                                                                        |
-| `pnpm format` / `pnpm format:check`  | oxfmt (writes / only checks)                                                  |
-| `pnpm --filter @chat/web test:watch` | Vitest in watch mode while developing the UI                                  |
+| Command                              | What it does                                                                     |
+| ------------------------------------ | -------------------------------------------------------------------------------- |
+| `pnpm dev`                           | starts every app in watch mode (`vite` for web, `nest start --watch` for api)    |
+| `pnpm build`                         | builds every package                                                             |
+| `pnpm test`                          | repo tests (`tooling/`) + every package's tests                                  |
+| `pnpm test:repo`                     | only the repo-level tests                                                        |
+| `pnpm test:int`                      | api integration tests against real Postgres and S3 (needs `pnpm infra:up`)       |
+| `pnpm test:cov`                      | api tests with a coverage report and enforced thresholds (see `docs/testing.md`) |
+| `pnpm db:migrate`                    | create and apply a migration after editing `schema.prisma`                       |
+| `pnpm db:seed`                       | fill the development database with demo data (see below)                         |
+| `pnpm typecheck`                     | `tsc --noEmit` in every package                                                  |
+| `pnpm lint` / `pnpm lint:fix`        | oxlint                                                                           |
+| `pnpm format` / `pnpm format:check`  | oxfmt (writes / only checks)                                                     |
+| `pnpm --filter @chat/web test:watch` | Vitest in watch mode while developing the UI                                     |
 
 Run a command for one package with `pnpm --filter @chat/web <script>`.
 
@@ -103,8 +104,13 @@ The api validates its environment at startup and names every missing or invalid 
 - **Integration tests** (`pnpm test:int`) use a database called `chat_test` on the same Postgres as development, so they can never touch your data. It is created and migrated automatically. Files in the S3 bucket `chat-attachments-test` are deleted before every test; the helper refuses to empty any bucket whose name does not end in `-test`.
 - They start the **whole application** (`createTestApp()` in `src/test/app.ts`) and call it over HTTP with supertest, so what is tested is what runs. Each test gets a fresh app, which also resets the in-memory rate limiter.
 - Fixtures are made directly with Prisma (`createUser`, `createGroup`, `addMessage`…). `t.auth(user)` returns an `Authorization` header signed like a real log-in.
+- WebSocket tests use real clients: `const t = await createTestApp(); const url = await t.listen(); const clients = new TestClients(url, t);`. Start listening for an event (`nextEvent`) _before_ the action that causes it.
 - **Pitfall:** build a header (`await logIn(...)`) _before_ creating a supertest request. Starting a second request while the first one is being built closes the first one's server.
 - The compiled build is a separate check: Vitest runs the code as ES modules, but production runs the CommonJS output. After changing module or build settings, run `pnpm --filter @chat/api build` and start `node apps/api/dist/main.js`.
+
+### Working on the real-time layer
+
+A new socket event goes in three places, and tests check two of them: declare it in `packages/shared/src/socket-events.ts` (with its payload schema), handle it in `apps/api/src/modules/realtime/realtime.gateway.ts` by calling a service (no logic in the gateway), and describe it in `docs/realtime.md` (a repo test fails if you forget). To check a running server by hand: `API_URL=http://localhost:3000 pnpm --filter @chat/api exec tsx scripts/ws-smoke.ts`.
 
 ### Adding or changing a table
 

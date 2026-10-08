@@ -22,6 +22,20 @@ export default defineConfig({
   oxc: false, // Vite 8: otherwise oxc strips the decorator metadata that Nest's DI needs
   plugins: [swc.vite({ module: { type: 'es6' } })],
   test: {
+    coverage: {
+      provider: 'v8',
+      include: ['src/**/*.ts'],
+      exclude: [
+        'src/**/*.spec.ts',
+        'src/test/**', // test helpers
+        'src/generated/**', // Prisma's generated client
+        'src/main.ts', // starts the server; exercised by the smoke test, not by unit tests
+      ],
+      reporter: ['text-summary', 'html', 'lcov'],
+      reportsDirectory: 'coverage',
+      // a little under the measured values (99.3 / 97.0 / 100 / 99.8): a drop fails the run
+      thresholds: { statements: 98, branches: 95, functions: 99, lines: 98 },
+    },
     projects: [
       {
         extends: true,

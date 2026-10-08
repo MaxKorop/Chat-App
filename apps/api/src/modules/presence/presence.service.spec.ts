@@ -62,6 +62,17 @@ describe('PresenceService', () => {
     expect(presence.connect('u1')).toBe(true);
   });
 
+  it('uses the grace period it is given, so tests and deployments can shorten it', () => {
+    const quick = new PresenceService(100);
+    const onOffline = vi.fn<() => void>();
+    quick.connect('u1');
+    quick.disconnect('u1', onOffline);
+    vi.advanceTimersByTime(99);
+    expect(onOffline).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(onOffline).toHaveBeenCalledTimes(1);
+  });
+
   it('ignores a disconnect for a user it has never seen', () => {
     const onOffline = vi.fn<() => void>();
     expect(() => presence.disconnect('ghost', onOffline)).not.toThrow();

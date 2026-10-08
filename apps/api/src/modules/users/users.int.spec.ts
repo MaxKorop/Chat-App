@@ -1,5 +1,5 @@
 import { publicUserSchema } from '@chat/shared';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { befriend, createTestApp, createUser, type TestApp } from '../../test/app';
 import { PresenceService } from '../presence/presence.service';
@@ -237,5 +237,19 @@ describe('friends', () => {
     expect(res.body.map((u: { username: string }) => u.username)).toEqual(['alpha', 'bravo']);
     expect(res.body[0].isOnline).toBe(true);
     await t.http().get('/api/users/me/friends').expect(401);
+  });
+});
+
+describe('when the database misbehaves', () => {
+  it('a failed profile update is a 500, not a silent success or a username conflict', async () => {
+    const me = await createUser(t.prisma);
+    vi.spyOn(t.prisma.user, 'update').mockRejectedValue(new Error('disk full'));
+    const res = await t
+      .http()
+      .patch('/api/users/me')
+      .set(t.auth(me))
+      .send({ about: 'x' })
+      .expect(500);
+    expect(res.body.message).toBe('Internal server error');
   });
 });

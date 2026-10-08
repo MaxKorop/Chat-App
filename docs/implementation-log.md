@@ -15,7 +15,7 @@ What has been implemented from [IMPROVEMENT_PLAN.md](./IMPROVEMENT_PLAN.md), how
 | 9     | File storage on S3, attachments           | done   |
 | 10-19 | everything else                           | todo   |
 
-Working branches, each started from the previous one: `feat/monorepo-tooling-vite` (Steps 1-3), `feat/shared-and-infra` (Steps 4-5, committed) and `feat/api-rewrite` (Steps 6-9). The old MongoDB version is tagged `v1-mongo`. Nothing has been pushed.
+Working branches, each started from the previous one: `feat/monorepo-tooling-vite` (Steps 1-3), `feat/shared-and-infra` (Steps 4-5, committed) and `feat/api-rewrite` (Steps 6-11). The old MongoDB version is tagged `v1-mongo`. Nothing has been pushed.
 
 ## How these steps were done (test first)
 
@@ -196,11 +196,54 @@ Each of these was a failing test before it was a fix:
 - **pnpm build approvals** added: `prisma` and `@prisma/engines` (they download the migration engine). `@swc/core`, `esbuild` and `lefthook` are denied, because their binaries come as optional dependencies, and `bcrypt` was removed together with the native module.
 - **`@types/multer` needed in the api's `types`**, because the tsconfig restricts global types to the ones it lists.
 
+## Steps 10-11: realtime and the backend test suite
+
+**Test status when these steps were finished**
+
+| Suite                                           | Result                                                                                      |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `pnpm test:repo`                                | 42 / 42                                                                                     |
+| `@chat/shared` unit tests                       | 65 / 65                                                                                     |
+| `@chat/api` unit tests (`pnpm test`)            | 122 / 122                                                                                   |
+| `@chat/api` integration tests (`pnpm test:int`) | 203 / 203 (202 were stable over five consecutive runs; the S3 timeout test was added after) |
+| `@chat/web` tests                               | 7 / 7                                                                                       |
+| API coverage (`pnpm test:cov`, 325 tests)       | 99.3 % statements, 97.0 % branches, 100 % functions, 99.8 % lines                           |
+| typecheck, lint, format check, build            | clean                                                                                       |
+
+### Step 10: the gateway
+
+- `RealtimeGateway` is a thin adapter, as designed: it authenticates the handshake, validates each command with the shared zod schemas, calls the services, and answers with `{ ok, data | error }`. Services publish domain events, the gateway listens and broadcasts. Nothing in the services knows about sockets.
+- `createPacketGuard` ends sockets whose token expired and drops events above 30 per 10 seconds. Transport is WebSocket only, packets are limited to 100 KB, unknown events are ignored.
+- Documented in `docs/realtime.md`, with a repo test that fails if an event of the shared contract is missing from it.
+- The tests use **real Socket.IO clients against a really listening server**: 38 integration tests cover authentication, delivery to members and only to members, forged senders, idempotent retries, edits and deletes, read cursors, typing, chats created or joined while connected, presence (including several tabs and a page refresh), rate limiting, token expiry on an open socket, oversized packets and unknown events. 31 unit tests cover the gateway's decisions with fakes.
+- The compiled production build was started and checked with `scripts/ws-smoke.ts` over real WebSockets: all checks passed, no errors in the server log.
+
+### Step 11: tests and coverage
+
+Most of Step 11 had already happened as a by-product of working test-first (Vitest in Step 6, unit and integration projects, the crypto, chats, messages, presence, packet-guard and gateway tests). What was added here:
+
+- `pnpm test:cov` with `@vitest/coverage-v8`: both test projects measured together, thresholds enforced, reports not committed. The thresholds were verified to fail when set too high.
+- **Error-path tests.** The first measurement (97.7 % statements, 92.6 % branches) showed that the missing coverage was nearly all error handling. New tests cover: unexpected database errors are neither swallowed nor leaked (the 500 body is generic, secrets in the error message never reach the client); a failing S3 cleanup does not hide the original error; deleting a message succeeds when S3 file removal fails; two people starting the same direct chat at once end up in one chat; wrong S3 credentials fail startup instead of creating a bucket; plus edge cases of previews and deleted accounts. After that: 99.3 % and 97.0 %.
+- `docs/testing.md`: the layers, what is real and what is injected, the lessons from the flaky tests, and how to run each part.
+
+### Bugs found by the tests in these steps
+
+1. **A user was told about their own presence.** When someone connected, the server announced "online" to the rooms of their chats, and their own socket is in those rooms. A test failed intermittently on whether the stray packet arrived before or after it started listening. Fixed by announcing from the connecting socket, which leaves it out; a deterministic test now guards it.
+2. **The S3 client had no timeout.** An unresponsive S3 would hang an upload for ever. Adding `requestTimeout` was not enough: in this SDK version it only _logs a warning_, and `throwOnRequestTimeout: true` is what makes it an error. The first version of the fix passed review and changed nothing; the test was therefore run with and without the fix to prove it.
+3. **A possible race on connect:** a client can send its first event the moment it connects, before an asynchronous setup has put its socket into the chat rooms. The gateway now loads the user's chats during the handshake and joins the rooms synchronously when the connection is created.
+
+### Deviations from the plan
+
+- **`PresenceService` takes its grace period as an injectable value** (`PRESENCE_GRACE_MS`, default 5 s), so integration tests do not have to wait five seconds.
+- **The handshake distinguishes `Unauthorized` from `Server error`.** A database failure while loading the user's chats is no longer reported as "unauthorized".
+- **`scripts/ws-smoke.ts` became a checking tool** that exits non-zero on failure, instead of a script that only prints. The real coverage is in the integration tests; the script is for checking a _running_ server, including a deployed one.
+- **No test for a custom zod validation pipe**, because Nest 12's built-in `StandardSchemaValidationPipe` is used (Step 7).
+- **S3 requests have a 30 second timeout** (new `requestTimeoutMs` in the storage config).
+
 ## Notes for upcoming steps
 
 - **Ports:** `DATABASE_URL` in `apps/api/.env.example` uses port 5432. If you changed `POSTGRES_PORT`, change the URL to match.
-- **Step 10:** build the gateway on top of `ChatsService.markRead` and `MessagesService.send/edit/delete`, listen to the domain events in `common/domain-events.ts`, and write `docs/realtime.md` (the link in `docs/api.md` is plain text until then).
-- **Step 11:** most of it is already done (Vitest, unit and integration tests); what remains is the gateway and packet-guard tests.
+- **Step 13:** the web client must follow `docs/realtime.md`: refetch after every reconnect, de-duplicate the sender's own message by id, stop showing "typing" a few seconds after the last event, and handle a validation error from REST as a list of `field: problem` strings.
 - **Step 16:** the api Dockerfile must run `prisma migrate deploy`, and `prisma generate` needs a `DATABASE_URL` while building.
-- **Step 17:** CI needs a Postgres service container and an S3-compatible service (or a SeaweedFS container) for `test:int`.
+- **Step 17:** CI needs a Postgres service container and an S3-compatible service (or a SeaweedFS container, started with the identity file `docker/s3.json`) for `test:int` and `test:cov`. After a deployment, run `scripts/ws-smoke.ts` against it.
 - **Step 14:** delete the web part of the oxlint override, antd and the `.css` files.

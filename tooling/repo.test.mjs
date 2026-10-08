@@ -41,7 +41,15 @@ function allDependencies(pkg) {
 
 describe('Step 1: pnpm monorepo', () => {
   it('keeps the improvement plan and its companion docs (the plan must never be deleted)', () => {
-    for (const file of ['IMPROVEMENT_PLAN.md', 'development.md', 'implementation-log.md']) {
+    for (const file of [
+      'IMPROVEMENT_PLAN.md',
+      'development.md',
+      'implementation-log.md',
+      'database.md',
+      'api.md',
+      'realtime.md',
+      'testing.md',
+    ]) {
       assert.ok(existsSync(path('docs', file)), `docs/${file} is missing`);
     }
   });
@@ -452,6 +460,21 @@ describe('Step 7: legacy Mongo api is gone', () => {
     assert.match(scripts['db:migrate'], /@chat\/api db:migrate/);
   });
 
+  it('measures test coverage of the api (unit and integration together) and keeps reports out of git', () => {
+    const { scripts, devDependencies } = readJson('apps', 'api', 'package.json');
+    assert.match(scripts['test:cov'], /vitest run --coverage/);
+    assert.ok(devDependencies['@vitest/coverage-v8'], '@vitest/coverage-v8 should be installed');
+    const config = read('apps', 'api', 'vitest.config.mts');
+    assert.match(config, /coverage:/);
+    assert.match(
+      config,
+      /thresholds:/,
+      'coverage thresholds stop the numbers from silently dropping',
+    );
+    assert.equal(ignored('apps/api/coverage/index.html'), true);
+    assert.match(readJson('package.json').scripts['test:cov'], /@chat\/api test:cov/);
+  });
+
   it('deleted the old source folders', () => {
     for (const dir of ['chat', 'image', 'user', 'pipes', 'guards', 'strategies']) {
       assert.ok(
@@ -480,23 +503,23 @@ describe('Step 7: legacy Mongo api is gone', () => {
   });
 });
 
-describe('API documentation', () => {
-  /** every "METHOD /api/path" declared by a controller, found by reading the source */
-  function routesInControllers() {
-    const routes = [];
-    for (const file of findFiles(api('src'), null, [], /\.controller\.ts$/)) {
-      const source = readFileSync(file, 'utf8');
-      const prefix = source.match(/@Controller\('([^']*)'\)/)?.[1] ?? '';
-      for (const [, verb, subpath] of source.matchAll(
-        /@(Get|Post|Patch|Put|Delete)\((?:'([^']*)')?\)/g,
-      )) {
-        const path = ['/api', prefix, subpath].filter(Boolean).join('/');
-        routes.push(`${verb.toUpperCase()} ${path}`);
-      }
+/** every "METHOD /api/path" declared by a controller, found by reading the source */
+function routesInControllers() {
+  const routes = [];
+  for (const file of findFiles(api('src'), null, [], /\.controller\.ts$/)) {
+    const source = readFileSync(file, 'utf8');
+    const prefix = source.match(/@Controller\('([^']*)'\)/)?.[1] ?? '';
+    for (const [, verb, subpath] of source.matchAll(
+      /@(Get|Post|Patch|Put|Delete)\((?:'([^']*)')?\)/g,
+    )) {
+      const route = ['/api', prefix, subpath].filter(Boolean).join('/');
+      routes.push(`${verb.toUpperCase()} ${route}`);
     }
-    return routes;
   }
+  return routes;
+}
 
+describe('API documentation', () => {
   it('lists every REST route of the api in docs/api.md', () => {
     const routes = routesInControllers();
     assert.ok(routes.length >= 15, `expected to find the api routes, found ${routes.length}`);
@@ -504,5 +527,34 @@ describe('API documentation', () => {
     for (const route of routes) {
       assert.ok(doc.includes(`\`${route}\``), `docs/api.md does not document \`${route}\``);
     }
+  });
+});
+
+/** the event names declared in the two interfaces of the shared socket contract */
+function eventsIn(interfaceName) {
+  const source = readFileSync(path('packages', 'shared', 'src', 'socket-events.ts'), 'utf8');
+  const body =
+    source.match(new RegExp(`interface ${interfaceName} \\{([\\s\\S]*?)\\n\\}`))?.[1] ?? '';
+  // events sit at the interface's own indentation; longer lines are wrapped payload properties
+  return [...body.matchAll(/^ {2}'?([a-z]+(?::[a-z]+)?)'?:/gm)].map((m) => m[1]);
+}
+
+describe('realtime documentation', () => {
+  it('documents every event of the socket contract in docs/realtime.md', () => {
+    const clientToServer = eventsIn('ClientToServerEvents');
+    const serverToClient = eventsIn('ServerToClientEvents');
+    assert.ok(clientToServer.length >= 5, `found only ${clientToServer.length} client events`);
+    assert.ok(serverToClient.length >= 7, `found only ${serverToClient.length} server events`);
+    const doc = read('docs', 'realtime.md');
+    for (const event of new Set([...clientToServer, ...serverToClient])) {
+      assert.ok(
+        doc.includes(`\`${event}\``),
+        `docs/realtime.md does not document the "${event}" event`,
+      );
+    }
+  });
+
+  it('is linked from the API documentation', () => {
+    assert.match(read('docs', 'api.md'), /\]\(\.\/realtime\.md\)/);
   });
 });

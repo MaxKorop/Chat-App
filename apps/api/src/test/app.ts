@@ -10,6 +10,7 @@ import { AppModule } from '../app.module';
 import { configureApp } from '../app.setup';
 import type { Prisma, User } from '../generated/prisma/client';
 import { EncryptionService } from '../modules/crypto/encryption.service';
+import { PRESENCE_GRACE_MS } from '../modules/presence/presence.service';
 import { StorageService } from '../modules/storage/storage.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { resetDb } from './db';
@@ -22,8 +23,14 @@ const passwordHash = bcrypt.hash(TEST_PASSWORD, 4);
 export type TestApp = Awaited<ReturnType<typeof createTestApp>>;
 
 /** A fully wired application on an empty test database. Close it in `afterEach`. */
-export async function createTestApp(options: { trustProxy?: boolean } = {}) {
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+export async function createTestApp(
+  options: { trustProxy?: boolean; presenceGraceMs?: number } = {},
+) {
+  const builder = Test.createTestingModule({ imports: [AppModule] });
+  // WebSocket tests do not want to wait 5 seconds to see somebody go offline
+  if (options.presenceGraceMs !== undefined)
+    builder.overrideProvider(PRESENCE_GRACE_MS).useValue(options.presenceGraceMs);
+  const moduleRef = await builder.compile();
   const app: INestApplication = moduleRef.createNestApplication();
   configureApp(app, { trustProxy: options.trustProxy ?? false });
   await app.init();
@@ -39,6 +46,12 @@ export async function createTestApp(options: { trustProxy?: boolean } = {}) {
     storage,
     jwt,
     http: () => request(app.getHttpServer()),
+    /** starts a real server on a free port (needed for WebSockets) and returns its address */
+    async listen() {
+      await app.listen(0, '127.0.0.1');
+      const address = app.getHttpServer().address() as { port: number };
+      return `http://127.0.0.1:${address.port}`;
+    },
     /** an Authorization header for `user`, signed like the real log-in does */
     auth: (user: Pick<User, 'id' | 'username'>) => ({
       Authorization: `Bearer ${jwt.sign({ sub: user.id, username: user.username })}`,

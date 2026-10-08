@@ -207,3 +207,14 @@ describe('POST /api/attachments', () => {
     expect(cleanup.mock.calls[0]![0]).toHaveLength(2); // the first file is removed again
   });
 });
+
+describe('when S3 is completely down', () => {
+  it('reports the original failure, even though cleaning up fails as well', async () => {
+    const user = await createUser(t.prisma);
+    vi.spyOn(t.storage, 'upload').mockRejectedValue(new Error('S3 is down'));
+    vi.spyOn(t.storage, 'deleteMany').mockRejectedValue(new Error('cleanup failed too'));
+    const res = await upload(user, { data: PNG }).expect(500);
+    expect(res.body.message).toBe('Internal server error');
+    expect(await t.prisma.attachment.count()).toBe(0);
+  });
+});

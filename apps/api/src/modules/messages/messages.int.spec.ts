@@ -460,3 +460,58 @@ describe('GET /api/chats/:chatId/messages', () => {
     await t.http().get(`/api/chats/${chat.id}/messages`).expect(401);
   });
 });
+
+describe('previews of replies', () => {
+  it('quote a photo-only message as "📷 Photo"', async () => {
+    const { me, bob, chat } = await twoPeopleInAGroup();
+    const [file] = await uploadPngs(bob);
+    const photo = await messages.send(
+      bob.id,
+      input(chat.id, { content: undefined, attachmentIds: [file!.id] }),
+    );
+    const reply = await messages.send(
+      me.id,
+      input(chat.id, { content: 'nice!', replyToId: photo.id }),
+    );
+    expect(reply.replyTo).toEqual({ id: photo.id, senderUsername: 'bob', preview: '📷 Photo' });
+  });
+
+  it('have no sender name when the author of the quoted message deleted their account', async () => {
+    const { me, bob, chat } = await twoPeopleInAGroup();
+    const original = await messages.send(bob.id, input(chat.id, { content: 'before I left' }));
+    const reply = await messages.send(
+      me.id,
+      input(chat.id, { content: 'ok', replyToId: original.id }),
+    );
+    await t.prisma.user.delete({ where: { id: bob.id } });
+    const { items } = await messages.list(me.id, chat.id, { limit: 10 });
+    expect(items.find((m) => m.id === reply.id)?.replyTo).toEqual({
+      id: original.id,
+      senderUsername: null,
+      preview: 'before I left',
+    });
+  });
+});
+
+describe('when something goes wrong', () => {
+  it('a database failure while sending is reported as it is, announces nothing and wastes no number', async () => {
+    const { me, chat } = await twoPeopleInAGroup();
+    vi.spyOn(t.prisma, '$transaction').mockRejectedValue(new Error('connection lost'));
+    await expect(messages.send(me.id, input(chat.id))).rejects.toThrow('connection lost');
+    expect(eventsOf(DomainEvents.MessageCreated)).toEqual([]);
+    expect((await t.prisma.chat.findUniqueOrThrow({ where: { id: chat.id } })).lastSeq).toBe(0);
+  });
+
+  it('deleting still succeeds when removing the files from S3 fails (the message is gone, only space is wasted)', async () => {
+    const { bob, chat } = await twoPeopleInAGroup();
+    const [file] = await uploadPngs(bob);
+    const message = await messages.send(bob.id, input(chat.id, { attachmentIds: [file!.id] }));
+    vi.spyOn(t.storage, 'deleteMany').mockRejectedValue(new Error('S3 unreachable'));
+
+    await expect(messages.delete(bob.id, { messageId: message.id })).resolves.toBeUndefined();
+    expect(await t.prisma.message.count()).toBe(0);
+    expect(eventsOf(DomainEvents.MessageDeleted)).toEqual([
+      { chatId: chat.id, messageId: message.id },
+    ]);
+  });
+});

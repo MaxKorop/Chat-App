@@ -2,7 +2,7 @@
 
 Base path: `/api`. All bodies are JSON, except file uploads (`multipart/form-data`). Request and response shapes are defined once, as zod schemas, in [`packages/shared`](../packages/shared/src), and both the api and the web app use them.
 
-Real-time operations (sending, editing and deleting messages, read cursors, typing, presence) are **not** REST. They go over one authenticated Socket.IO connection; they are documented in `docs/realtime.md`, which is written together with the gateway in Step 10.
+Real-time operations (sending, editing and deleting messages, read cursors, typing, presence) are **not** REST. They go over one authenticated Socket.IO connection; they are documented in [realtime.md](./realtime.md).
 
 ## Conventions
 

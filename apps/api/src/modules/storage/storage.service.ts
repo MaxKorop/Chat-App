@@ -82,6 +82,12 @@ export class StorageService implements OnModuleInit, OnModuleDestroy {
       endpoint,
       forcePathStyle: this.config.forcePathStyle,
       credentials: this.config.credentials,
+      // Without `throwOnRequestTimeout` the SDK only logs a warning when the timeout passes and keeps waiting.
+      requestHandler: {
+        connectionTimeout: 5_000,
+        requestTimeout: this.config.requestTimeoutMs,
+        throwOnRequestTimeout: true,
+      },
     });
   }
 }
