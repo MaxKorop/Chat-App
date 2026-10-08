@@ -8,7 +8,7 @@ The plan has three parts:
 
 Versions aren't pinned. Install the latest of everything (`pnpm add x@latest`), except where a step says otherwise.
 
-> **Progress:** Steps 1-15 are implemented. Deviations from this plan, with reasons, are recorded in [implementation-log.md](./implementation-log.md); day-to-day usage is in [development.md](./development.md). This plan itself is kept unchanged as the design record.
+> **Progress:** Steps 1-19 are implemented. Deviations from this plan, with reasons, are recorded in [implementation-log.md](./implementation-log.md); day-to-day usage is in [development.md](./development.md). This plan itself is kept unchanged as the design record.
 >
 > **Revision 2.** Message security (§2.3), the WebSocket-or-SSE question (§2.8), read tracking (§2.9) and WebSocket hardening (§2.10) were investigated. Steps 4, 6, 7, 8, 10, 11, 13, 14, 15, 16, 18 and 19 changed as a result.
 > The biggest design change: **all message commands (send, edit, delete, read, typing) now go over the socket with acknowledgements; REST keeps history, uploads and everything non-realtime.** Read state is one integer cursor per member.

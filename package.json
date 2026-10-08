@@ -11,7 +11,7 @@
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "prepare": "lefthook install",
+    "prepare": "node tooling/install-hooks.mjs",
     "infra:up": "docker compose up -d postgres s3",
     "infra:down": "docker compose down",
     "test:int": "pnpm --filter @chat/api test:int",

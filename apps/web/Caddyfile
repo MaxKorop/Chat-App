@@ -1,0 +1,26 @@
+# SITE_ADDRESS is a domain in production (Caddy then gets a TLS certificate by itself) and ":80" otherwise.
+{$SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		# style-src 'unsafe-inline': Radix and sonner set inline styles.
+		# img-src https:/http: lets the browser load attachments from the S3 endpoint; tighten it to the bucket's host once known.
+		Content-Security-Policy "default-src 'self'; img-src 'self' data: blob: https: http://localhost:8333; connect-src 'self' ws: wss:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'"
+	}
+
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+	handle /socket.io/* {
+		reverse_proxy api:3000
+	}
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -5,6 +5,11 @@
   "description": "",
   "license": "UNLICENSED",
   "author": "",
+  "files": [
+    "dist",
+    "prisma",
+    "prisma.config.ts"
+  ],
   "scripts": {
     "build": "nest build",
     "start": "nest start",

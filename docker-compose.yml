@@ -29,6 +29,11 @@ services:
     volumes:
       - s3data:/data
       - ./docker/s3.json:/etc/seaweedfs/s3.json:ro
+    # any HTTP answer (even "access denied") means the S3 port is open; the api exits if it cannot reach S3 at startup
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -s -o /dev/null http://localhost:8333/']
+      interval: 3s
+      retries: 20
 
   # Optional: the whole stack in containers
   api:
@@ -44,7 +49,7 @@ services:
       S3_PUBLIC_ENDPOINT: http://localhost:${S3_PORT:-8333}
     depends_on:
       postgres: { condition: service_healthy }
-      s3: { condition: service_started }
+      s3: { condition: service_healthy }
 
   web:
     profiles: [full]
