@@ -558,3 +558,153 @@ describe('realtime documentation', () => {
     assert.match(read('docs', 'api.md'), /\]\(\.\/realtime\.md\)/);
   });
 });
+
+describe('Step 12: Tailwind and shadcn/ui', () => {
+  const uiComponents = [
+    'alert-dialog',
+    'avatar',
+    'badge',
+    'button',
+    'checkbox',
+    'context-menu',
+    'dialog',
+    'dropdown-menu',
+    'field',
+    'input',
+    'label',
+    'popover',
+    'scroll-area',
+    'separator',
+    'skeleton',
+    'sonner',
+    'switch',
+    'tabs',
+    'textarea',
+    'tooltip',
+  ];
+
+  it('builds the UI with Tailwind v4 through its Vite plugin', () => {
+    const deps = allDependencies(readJson('apps', 'web', 'package.json'));
+    for (const needed of [
+      'tailwindcss',
+      '@tailwindcss/vite',
+      'radix-ui',
+      'lucide-react',
+      'class-variance-authority',
+      'cn',
+      'sonner',
+    ]) {
+      assert.ok(deps.includes(needed), `${needed} should be installed in apps/web`);
+    }
+    assert.match(readFileSync(web('vite.config.ts'), 'utf8'), /tailwindcss\(\)/);
+    assert.match(readFileSync(web('src', 'styles.css'), 'utf8'), /@import ['"]tailwindcss['"]/);
+  });
+
+  it('keeps shadcn configured for Vite with the @ aliases', () => {
+    const config = readJson('apps', 'web', 'components.json');
+    assert.equal(config.rsc, false);
+    assert.equal(config.aliases.components, '@/components');
+    assert.equal(config.aliases.utils, '@/lib/utils');
+    assert.ok(existsSync(web('src', 'lib', 'utils.ts')));
+  });
+
+  it('has the shadcn components the screens are built from', () => {
+    for (const name of uiComponents) {
+      assert.ok(
+        existsSync(web('src', 'components', 'ui', `${name}.tsx`)),
+        `src/components/ui/${name}.tsx is missing`,
+      );
+    }
+  });
+
+  it('stays dark, as the old app was', () => {
+    assert.match(readFileSync(web('index.html'), 'utf8'), /<html[^>]*class="dark"/);
+  });
+});
+
+describe('Step 13: the frontend data layer', () => {
+  /** "METHOD /api/path" for every axios call in the web app's feature API files, with ${id} → :param */
+  function routesCalledByTheWebApp() {
+    const routes = new Set();
+    for (const file of findFiles(web('src', 'features'), null, [], /^api\.ts$/)) {
+      const source = readFileSync(file, 'utf8');
+      for (const [, verb, quote, url] of source.matchAll(
+        /api\.(get|post|patch|put|delete)(?:<.*?>)?\(\s*(['`])([^'`]+)\2/g,
+      )) {
+        void quote;
+        routes.add(`${verb.toUpperCase()} /api${url.replaceAll(/\$\{[^}]+\}/g, ':param')}`);
+      }
+    }
+    return routes;
+  }
+
+  it('drops MobX, moment and jwt-decode for Zustand, React Query and date-fns (through @chat/shared)', () => {
+    const deps = allDependencies(readJson('apps', 'web', 'package.json'));
+    for (const gone of ['mobx', 'mobx-react-lite', 'moment', 'jwt-decode']) {
+      assert.ok(!deps.includes(gone), `${gone} should be removed`);
+    }
+    for (const needed of [
+      'zustand',
+      '@tanstack/react-query',
+      'react-hook-form',
+      '@hookform/resolvers',
+      'axios',
+      'socket.io-client',
+    ]) {
+      assert.ok(deps.includes(needed), `${needed} should be installed`);
+    }
+  });
+
+  it('calls every REST route documented in docs/api.md, and none that does not exist', () => {
+    const documented = new Set(
+      [...read('docs', 'api.md').matchAll(/`((?:GET|POST|PATCH|PUT|DELETE) \/api\/[^`]+)`/g)].map(
+        (m) => m[1].replaceAll(/:[a-zA-Z]+/g, ':param'),
+      ),
+    );
+    const called = routesCalledByTheWebApp();
+    assert.ok(called.size >= 15, `found only ${called.size} routes in the web api files`);
+    for (const route of documented)
+      assert.ok(called.has(route), `the web app never calls ${route}`);
+    for (const route of called)
+      assert.ok(
+        documented.has(route),
+        `the web app calls ${route}, which docs/api.md does not document`,
+      );
+  });
+});
+
+describe('Steps 14-15: the rebuilt UI and its documentation', () => {
+  it('has removed the old antd/MobX UI completely', () => {
+    const deps = allDependencies(readJson('apps', 'web', 'package.json'));
+    for (const gone of ['antd', '@ant-design/icons'])
+      assert.ok(!deps.includes(gone), `${gone} should be removed`);
+    for (const dir of [
+      'components/Auth',
+      'components/Chat',
+      'components/SidePanel',
+      'http',
+      'store',
+    ])
+      assert.ok(!existsSync(web('src', dir)), `src/${dir} is legacy code and should be deleted`);
+    assert.equal(
+      findFiles(web('src'), null, [], /\.css$/).length,
+      1,
+      'only styles.css should remain',
+    );
+    assert.ok(!/LEGACY/.test(read('.oxlintrc.json')), 'the legacy lint override should be deleted');
+  });
+
+  it('documents the frontend architecture in docs/frontend.md', () => {
+    assert.ok(existsSync(path('docs', 'frontend.md')), 'docs/frontend.md is missing');
+    const doc = read('docs', 'frontend.md');
+    for (const store of ['auth-store', 'chat-ui-store', 'pending-store', 'typing-store'])
+      assert.ok(doc.includes(store), `docs/frontend.md does not describe ${store}`);
+    for (const name of readdirSync(web('src', 'stores')).filter((f) =>
+      /^[a-z-]+-store\.ts$/.test(f),
+    ))
+      assert.ok(
+        doc.includes(name.replace('.ts', '')),
+        `docs/frontend.md does not describe ${name}`,
+      );
+  });
+});

@@ -4,13 +4,13 @@ Every change in this repository starts with a failing test (see "Test-first work
 
 ## The layers
 
-| Layer                 | Where                              | Runner                        | Needs                               | What it proves                                                                                    |
-| --------------------- | ---------------------------------- | ----------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Repository rules      | `tooling/*.test.mjs`               | `node --test`                 | nothing (Docker for compose checks) | the structure, tooling and documentation stay as designed                                         |
-| Shared contract       | `packages/shared/src/**/*.test.ts` | Vitest                        | nothing                             | the zod schemas, the socket types and the pure helpers                                            |
-| API unit tests        | `apps/api/src/**/*.spec.ts`        | Vitest, project `unit`        | nothing                             | logic that needs no database: encryption, key ring, guards, packet guard, the gateway's decisions |
-| API integration tests | `apps/api/src/**/*.int.spec.ts`    | Vitest, project `integration` | Postgres and S3 (`pnpm infra:up`)   | the whole application over real HTTP and real WebSockets                                          |
-| Web tests             | `apps/web/src/**/*.test.tsx`       | Vitest, jsdom                 | nothing                             | the legacy UI components (rewritten in Step 14)                                                   |
+| Layer                 | Where                              | Runner                        | Needs                               | What it proves                                                                                     |
+| --------------------- | ---------------------------------- | ----------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Repository rules      | `tooling/*.test.mjs`               | `node --test`                 | nothing (Docker for compose checks) | the structure, tooling and documentation stay as designed                                          |
+| Shared contract       | `packages/shared/src/**/*.test.ts` | Vitest                        | nothing                             | the zod schemas, the socket types and the pure helpers                                             |
+| API unit tests        | `apps/api/src/**/*.spec.ts`        | Vitest, project `unit`        | nothing                             | logic that needs no database: encryption, key ring, guards, packet guard, the gateway's decisions  |
+| API integration tests | `apps/api/src/**/*.int.spec.ts`    | Vitest, project `integration` | Postgres and S3 (`pnpm infra:up`)   | the whole application over real HTTP and real WebSockets                                           |
+| Web tests             | `apps/web/src/**/*.test.ts(x)`     | Vitest, jsdom                 | nothing                             | screens and hooks against a fake socket and mocked REST modules (see [frontend.md](./frontend.md)) |
 
 Nothing in the data layer is mocked. Integration tests talk to a real PostgreSQL (database `chat_test`, created and migrated automatically) and a real S3-compatible store (SeaweedFS, bucket `chat-attachments-test`, emptied before each test).
 
@@ -63,6 +63,8 @@ A flaky test is a bug report: both times this suite misbehaved intermittently, i
 3. **A test that passes without the fix proves nothing.** Once, a single test hung during a coverage run and could not be reproduced; it exposed that the S3 client had no timeout at all. When the timeout was added, the test was run both with and without it; the first version of the fix passed review but changed nothing, because the AWS SDK only _logs_ a timeout unless `throwOnRequestTimeout` is set.
 4. **Do not use fixed sleeps to wait for something to happen.** Wait for the event. Sleeps are used only where elapsed time is the thing under test (an expiring URL, a grace period), and then with a safety margin.
 5. **A threshold must be able to fail.** The coverage thresholds were checked by running with an impossible one.
+6. **A test must never reach a real server.** jsdom's address is `http://localhost:3000`, the development api's port. A web test that forgot to mock a request passed for weeks and then failed once the api was running (a real `401` logged the app out). `apps/web/src/test/setup.ts` now rejects every unmocked request.
+7. **A passing test is not a clean console.** A duplicate React key only logged a warning; one test now fails on warnings while a chat renders.
 
 ## The smoke test
 
@@ -84,6 +86,6 @@ The script (see [realtime.md](./realtime.md)) uses real WebSockets against the r
 
 ## What is not covered yet
 
-- The web application's tests are the old UI's (7 tests). They are replaced together with the UI in Steps 13 to 15.
+- The web tests mock the network, so they cannot catch a mismatch with the real server. That gap is covered by the repo test that compares the routes the web app calls with `docs/api.md`, and by the manual run against the real backend recorded in [implementation-log.md](./implementation-log.md).
 - There is no browser-level end-to-end test. The API is exercised end to end through real HTTP and WebSockets, and the UI is thin enough that component tests are planned to be enough.
 - Load and performance are out of scope for this project.
