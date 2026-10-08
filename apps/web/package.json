@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@ant-design/icons": "^5.3.5",
+    "@chat/shared": "workspace:*",
     "@types/node": "catalog:",
     "antd": "^5.17.0",
     "axios": "^1.6.8",

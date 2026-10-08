@@ -1,0 +1,58 @@
+# Local development infrastructure.
+#   pnpm infra:up                               → postgres + s3 (run the apps with `pnpm dev`)
+#   docker compose --profile full up --build    → also run the api and web app in containers
+#
+# Host ports can be changed in a root `.env` (see .env.example) when the default is taken.
+name: chat-app
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: chat
+      POSTGRES_PASSWORD: chat
+      POSTGRES_DB: chat
+    ports: ['127.0.0.1:${POSTGRES_PORT:-5432}:5432']
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U chat -d chat']
+      interval: 5s
+      retries: 10
+
+  # S3-compatible storage for attachments (MinIO is archived, SeaweedFS is maintained).
+  # docker/s3.json defines one dev identity (dev / dev), so requests must be signed and presigned
+  # URLs are verified, like on AWS. Without an identity file SeaweedFS skips authentication entirely.
+  s3:
+    image: chrislusf/seaweedfs:4.48
+    command: server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json
+    ports: ['127.0.0.1:${S3_PORT:-8333}:8333']
+    volumes:
+      - s3data:/data
+      - ./docker/s3.json:/etc/seaweedfs/s3.json:ro
+
+  # Optional: the whole stack in containers
+  api:
+    profiles: [full]
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    env_file:
+      - path: apps/api/.env
+        required: false
+    environment:
+      PORT: '3000'
+      DATABASE_URL: postgresql://chat:chat@postgres:5432/chat
+      S3_ENDPOINT: http://s3:8333
+      S3_PUBLIC_ENDPOINT: http://localhost:${S3_PORT:-8333}
+    depends_on:
+      postgres: { condition: service_healthy }
+      s3: { condition: service_started }
+
+  web:
+    profiles: [full]
+    build: { context: ., dockerfile: apps/web/Dockerfile }
+    environment: { SITE_ADDRESS: ':80' }
+    ports: ['${WEB_PORT:-8080}:80']
+    depends_on: [api]
+
+volumes:
+  pgdata:
+  s3data:

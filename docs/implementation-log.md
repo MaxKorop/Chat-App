@@ -7,13 +7,15 @@ What has been implemented from [IMPROVEMENT_PLAN.md](./IMPROVEMENT_PLAN.md), how
 | 1    | pnpm monorepo                           | done   |
 | 2    | Shared tooling (oxlint, oxfmt, commits) | done   |
 | 3    | Frontend on Vite + React 19 + Vitest    | done   |
-| 4-19 | everything else                         | todo   |
+| 4    | `packages/shared`                       | done   |
+| 5    | Local infrastructure (docker compose)   | done   |
+| 6-19 | everything else                         | todo   |
 
-Working branch: `feat/monorepo-tooling-vite` (from `develop`, from `main`). The old MongoDB version is tagged `v1-mongo`. Nothing has been pushed.
+Working branches: `feat/monorepo-tooling-vite` (Steps 1-3, committed) and `feat/shared-and-infra` (Steps 4-5), branched in sequence from `develop` / `main`. The old MongoDB version is tagged `v1-mongo`. Nothing has been pushed.
 
 ## How these steps were done (test first)
 
-Before any implementation, `tooling/repo.test.mjs` was written to describe Steps 1-3. It started with **16 failing tests**. The steps were then implemented one at a time until all 16 passed. Step 3 also started from the existing web tests: they were switched to the Vitest API (`jest.fn()` → `vi.fn()`) and confirmed failing before the toolchain was replaced. One more assertion (overridable proxy target) was added to an existing test the same way, failing first.
+Before any implementation, `tooling/repo.test.mjs` was written to describe Steps 1-3. It started with **16 failing tests**. Steps 4-5 repeated the same cycle (see their sections). The steps were then implemented one at a time until all 16 passed. Step 3 also started from the existing web tests: they were switched to the Vitest API (`jest.fn()` → `vi.fn()`) and confirmed failing before the toolchain was replaced. One more assertion (overridable proxy target) was added to an existing test the same way, failing first.
 
 **Final verification** (all green):
 
@@ -81,8 +83,57 @@ Before any implementation, `tooling/repo.test.mjs` was written to describe Steps
 - **The web package is `"type": "module"`** (Vite convention).
 - The production bundle is 1.1 MB (antd + moment). It shrinks when antd and moment are removed in Steps 13-14.
 
+## Step 4: `packages/shared`
+
+**Test first.** 9 test files / 65 tests were written against modules that did not exist yet and failed with "cannot find module". Ten more repo-level checks (package wiring, dual build, real imports from the apps) were red at the same time. Then the package was implemented until everything was green.
+
+**Done**
+
+- `@chat/shared` with zod 4 schemas for auth, users, chats, messages and attachments, the typed Socket.IO contract (`ClientToServerEvents`, `ServerToClientEvents`, `Ack<T>`), and the pure utilities (`directKey`, `canEditMessage`, `canDeleteMessage`, `isReadBy`, date helpers on date-fns, `truncate`, `getInitials`).
+- It is built twice by tsdown (ESM + CJS with matching `.d.mts` / `.d.cts`), because Vite consumes ESM and Nest consumes CJS.
+- Both apps depend on it with `workspace:*`. A repo test imports it with `require()` from `apps/api` and with `import()` from `apps/web`, so the dual-format claim is checked for real, not assumed.
+- The read cursor (`lastReadSeq`), the per-chat `seq` and the idempotency `clientId` from plan §2.9 are part of the schemas already.
+
+**Deviations from the plan**
+
+- **Root `typecheck` and `test` build `@chat/shared` first**, not only `dev`. The apps resolve the package through its built output, so without a build their typecheck and tests would fail on a fresh clone.
+- **`truncate` and `getInitials` had no specification in the plan.** Their behaviour is defined by their tests: `truncate` never returns more than `max` characters and never leaves a space before the ellipsis; `getInitials` takes the first letter of the first two words and returns `?` for an empty name.
+- **`tsdown.config.ts` has no `exclude` option** (the plan's first draft guessed one; the typecheck rejected it). It is not needed, because only `src/index.ts` is an entry point, so test files never reach `dist/`.
+- Versions: zod 4.6, vitest 5, tsdown 0.23, date-fns 4.4.
+
+## Step 5: local infrastructure
+
+**Test first.** Six repo tests described the compose file, the env examples and the infra scripts, and failed before any file existed. A seventh was added after a finding below, and also failed first.
+
+**Done**
+
+- `docker-compose.yml`: `postgres` (17-alpine, with a healthcheck) and `s3` (SeaweedFS) by default; `api` and `web` only in the `full` profile (their Dockerfiles arrive in Step 16). Data lives in the named volumes `pgdata` and `s3data`.
+- Root `.env.example` (host ports) and `apps/api/.env.example` (every variable the api will validate in Step 7, with the encryption key left empty on purpose).
+- Root scripts `infra:up` (`docker compose up -d postgres s3`) and `infra:down`.
+
+**Verified on real containers** (then removed again with `docker compose down -v`; no volumes or containers of this project are left):
+
+| Check                                                            | Result                    |
+| ---------------------------------------------------------------- | ------------------------- |
+| Postgres reachable through the published port, healthcheck       | healthy, PostgreSQL 17.11 |
+| S3 create bucket, put, get, delete (AWS CLI, SigV4-signed)       | works with the dev key    |
+| Presigned URL fetched with plain `curl`                          | 200                       |
+| Presigned URL with a tampered signature / for a different object | 403 / 403                 |
+| Presigned URL after it expired                                   | 403                       |
+| Anonymous requests, wrong access key                             | 403, `InvalidAccessKeyId` |
+| Clean start from empty volumes, then bucket creation             | works                     |
+
+**Deviations from the plan**
+
+- **The local S3 enforces credentials** (`docker/s3.json` defines one identity, `dev` / `dev`, matching `apps/api/.env.example`). The plan said any key would work. Measured instead: with no identity file SeaweedFS performs **no authentication at all**, and a presigned URL with a corrupted signature still returned 200. That would hide signing bugs and make URL-security tests meaningless locally. Now local behaviour matches AWS for signing, tampering and expiry.
+- **SeaweedFS is pinned to `4.48`** (the plan used `latest`), so a new upstream release can't change local behaviour.
+- **Host ports are bound to `127.0.0.1` and overridable** with `POSTGRES_PORT`, `S3_PORT` and `WEB_PORT` (root `.env`). The services use default dev passwords, so they should not listen on the network, and on the author's machine 5432 and 3000 are already taken by other containers.
+- The compose `api` service reads `apps/api/.env` as **optional** (`required: false`), so `docker compose config` works on a fresh clone and in CI.
+
 ## Notes for upcoming steps
 
+- **Step 6:** `DATABASE_URL` in `apps/api/.env.example` uses port 5432. If you changed `POSTGRES_PORT`, change the URL to match.
+- **Step 9:** the local S3 requires the `dev` / `dev` credentials, so `StorageService` must pass them to the SDK in development. Creating the bucket on startup works with them (verified with the AWS CLI).
 - **Step 7:** NestJS is now at v12 and TypeScript at v7 (the plan assumed Nest 11). Check peer ranges and decorator-metadata support before choosing versions, then remove the api's legacy tsconfig relaxations and the api part of the oxlint override.
 - **Step 11:** replace `jest --passWithNoTests` with Vitest.
 - **Step 14:** delete the web part of the oxlint override, antd and the `.css` files.

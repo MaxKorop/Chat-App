@@ -28,6 +28,11 @@ function findFiles(dir, name, found = []) {
 const lint = (message) =>
   spawnSync('pnpm', ['exec', 'commitlint'], { cwd: root, input: message, encoding: 'utf8' });
 const web = (...p) => path('apps', 'web', ...p);
+const shared = (...p) => path('packages', 'shared', ...p);
+const compose = (...args) =>
+  spawnSync('docker', ['compose', ...args], { cwd: root, encoding: 'utf8' });
+const ignored = (file) =>
+  spawnSync('git', ['check-ignore', '-q', file], { cwd: root }).status === 0;
 
 function allDependencies(pkg) {
   return Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
@@ -207,5 +212,171 @@ describe('Step 3: frontend on Vite + Vitest', () => {
       .concat(findFiles(web('src'), 'App.tsx'))
       .filter((f) => /REACT_APP_|ws:\/\/localhost:5000/.test(readFileSync(f, 'utf8')));
     assert.deepEqual(offenders, []);
+  });
+});
+
+describe('Step 4: packages/shared', () => {
+  it('is a dual ESM/CJS package named @chat/shared', () => {
+    const pkg = readJson('packages', 'shared', 'package.json');
+    assert.equal(pkg.name, '@chat/shared');
+    const entry = pkg.exports['.'];
+    assert.equal(entry.import.default, './dist/index.mjs');
+    assert.equal(entry.import.types, './dist/index.d.mts');
+    assert.equal(entry.require.default, './dist/index.cjs');
+    assert.equal(entry.require.types, './dist/index.d.cts');
+    assert.ok(existsSync(shared('tsdown.config.ts')), 'tsdown.config.ts is missing');
+  });
+
+  it('is used by both apps through the workspace protocol', () => {
+    for (const app of ['web', 'api']) {
+      const pkg = readJson('apps', app, 'package.json');
+      assert.equal(
+        pkg.dependencies?.['@chat/shared'],
+        'workspace:*',
+        `${app} must depend on @chat/shared`,
+      );
+    }
+  });
+
+  it('is built before anything that consumes it (dev, typecheck, test)', () => {
+    const { scripts } = readJson('package.json');
+    for (const name of ['dev', 'typecheck', 'test']) {
+      assert.match(
+        scripts[name],
+        /@chat\/shared build/,
+        `root "${name}" must build @chat/shared first`,
+      );
+    }
+  });
+
+  it('builds ESM, CJS and both type declarations', () => {
+    for (const file of ['index.mjs', 'index.cjs', 'index.d.mts', 'index.d.cts']) {
+      assert.ok(
+        existsSync(shared('dist', file)),
+        `dist/${file} is missing (run: pnpm --filter @chat/shared build)`,
+      );
+    }
+  });
+
+  it('can be imported from the CommonJS api and the ESM web app', () => {
+    const check = `s => { if (!s.LIMITS || !s.signUpSchema || !s.directKey) throw new Error('incomplete exports') }`;
+    const cjs = spawnSync('node', ['-e', `(${check})(require('@chat/shared'))`], {
+      cwd: path('apps', 'api'),
+      encoding: 'utf8',
+    });
+    assert.equal(cjs.status, 0, `require() from apps/api failed:\n${cjs.stderr}`);
+    const esm = spawnSync(
+      'node',
+      ['--input-type=module', '-e', `import('@chat/shared').then(${check})`],
+      { cwd: path('apps', 'web'), encoding: 'utf8' },
+    );
+    assert.equal(esm.status, 0, `import() from apps/web failed:\n${esm.stderr}`);
+  });
+});
+
+describe('Step 5: local infrastructure', () => {
+  it('has a valid docker-compose.yml, with and without the "full" profile', () => {
+    assert.ok(existsSync(path('docker-compose.yml')), 'docker-compose.yml is missing');
+    for (const args of [
+      ['config', '-q'],
+      ['--profile', 'full', 'config', '-q'],
+    ]) {
+      const result = compose(...args);
+      assert.equal(result.status, 0, `docker compose ${args.join(' ')} failed:\n${result.stderr}`);
+    }
+  });
+
+  it('runs postgres and an S3-compatible store by default, the apps only in the "full" profile', () => {
+    const services = JSON.parse(
+      compose('--profile', 'full', 'config', '--format', 'json').stdout,
+    ).services;
+    assert.deepEqual(Object.keys(services).toSorted(), ['api', 'postgres', 's3', 'web']);
+    assert.match(services.postgres.image, /^postgres:17/);
+    assert.ok(services.postgres.healthcheck, 'postgres needs a healthcheck');
+    assert.match(
+      services.s3.image,
+      /seaweedfs:\d/,
+      'pin the seaweedfs version instead of using :latest',
+    );
+    assert.deepEqual(services.api.profiles, ['full']);
+    assert.deepEqual(services.web.profiles, ['full']);
+    assert.equal(services.postgres.profiles, undefined);
+    assert.equal(services.s3.profiles, undefined);
+  });
+
+  it('keeps data in named volumes and lets host ports be overridden (5432/3000 are often taken)', () => {
+    const text = read('docker-compose.yml');
+    assert.match(text, /pgdata:/);
+    assert.match(text, /s3data:/);
+    for (const variable of ['POSTGRES_PORT', 'S3_PORT', 'WEB_PORT']) {
+      assert.match(
+        text,
+        new RegExp(`\\$\\{${variable}:-\\d+\\}`),
+        `${variable} must have a default`,
+      );
+    }
+    assert.ok(existsSync(path('.env.example')), 'root .env.example (compose ports) is missing');
+  });
+
+  it('documents every api environment variable in apps/api/.env.example, without real secrets', () => {
+    const text = read('apps', 'api', '.env.example');
+    const keys = text
+      .split('\n')
+      .filter((line) => /^[A-Z0-9_]+=/.test(line))
+      .map((line) => line.split('=')[0]);
+    for (const key of [
+      'NODE_ENV',
+      'PORT',
+      'DATABASE_URL',
+      'JWT_SECRET',
+      'JWT_EXPIRES_IN',
+      'MESSAGE_KEYS',
+      'MESSAGE_KEY_ID',
+      'S3_BUCKET',
+      'S3_REGION',
+      'S3_ENDPOINT',
+      'S3_PUBLIC_ENDPOINT',
+      'S3_ACCESS_KEY_ID',
+      'S3_SECRET_ACCESS_KEY',
+    ]) {
+      assert.ok(keys.includes(key), `${key} is missing from apps/api/.env.example`);
+    }
+    assert.match(
+      text,
+      /^MESSAGE_KEYS=$/m,
+      'the encryption key must be generated by the developer, not committed',
+    );
+  });
+
+  it('makes the local S3 enforce credentials like AWS does, using the dev keys from .env.example', () => {
+    const s3 = JSON.parse(compose('config', '--format', 'json').stdout).services.s3;
+    assert.match(String(s3.command), /-s3\.config=\/etc\/seaweedfs\/s3\.json/);
+    assert.ok(
+      s3.volumes.some((v) => v.target === '/etc/seaweedfs/s3.json' && v.read_only),
+      'the identity file must be mounted read-only',
+    );
+    const { identities } = readJson('docker', 's3.json');
+    const env = read('apps', 'api', '.env.example');
+    const accessKey = env.match(/^S3_ACCESS_KEY_ID=(.+)$/m)?.[1];
+    const secretKey = env.match(/^S3_SECRET_ACCESS_KEY=(.+)$/m)?.[1];
+    assert.ok(
+      identities.some((i) =>
+        i.credentials.some((c) => c.accessKey === accessKey && c.secretKey === secretKey),
+      ),
+      'docker/s3.json must define the credentials that apps/api/.env.example uses',
+    );
+  });
+
+  it('commits the .env.example files but ignores real .env files', () => {
+    assert.equal(ignored('apps/api/.env'), true);
+    assert.equal(ignored('.env'), true);
+    assert.equal(ignored('apps/api/.env.example'), false);
+    assert.equal(ignored('.env.example'), false);
+  });
+
+  it('exposes infra scripts at the root', () => {
+    const { scripts } = readJson('package.json');
+    assert.match(scripts['infra:up'], /docker compose up -d postgres s3/);
+    assert.match(scripts['infra:down'], /docker compose down/);
   });
 });
