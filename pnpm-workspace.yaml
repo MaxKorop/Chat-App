@@ -14,8 +14,11 @@ injectWorkspacePackages: true
 
 # install scripts are blocked by default; only these dependencies may run them
 allowBuilds:
-  bcrypt: true # native module of the old api (replaced by bcryptjs in Step 7)
+  prisma: true # downloads the schema/migration engine
+  '@prisma/engines': true
   '@nestjs/core': false # only prints a donation banner
   core-js: false
   core-js-pure: false
-  lefthook: false
+  lefthook: false # the binary ships as an optional dependency
+  '@swc/core': false # same: the binary ships as an optional dependency
+  esbuild: false # same (pulled in by tsx)

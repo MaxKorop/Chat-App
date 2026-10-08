@@ -2,16 +2,20 @@
 
 What has been implemented from [IMPROVEMENT_PLAN.md](./IMPROVEMENT_PLAN.md), how each step was verified, and where reality differed from the plan. The plan is never edited to hide a deviation; this log is where deviations are recorded.
 
-| Step | Title                                   | Status |
-| ---- | --------------------------------------- | ------ |
-| 1    | pnpm monorepo                           | done   |
-| 2    | Shared tooling (oxlint, oxfmt, commits) | done   |
-| 3    | Frontend on Vite + React 19 + Vitest    | done   |
-| 4    | `packages/shared`                       | done   |
-| 5    | Local infrastructure (docker compose)   | done   |
-| 6-19 | everything else                         | todo   |
+| Step  | Title                                     | Status |
+| ----- | ----------------------------------------- | ------ |
+| 1     | pnpm monorepo                             | done   |
+| 2     | Shared tooling (oxlint, oxfmt, commits)   | done   |
+| 3     | Frontend on Vite + React 19 + Vitest      | done   |
+| 4     | `packages/shared`                         | done   |
+| 5     | Local infrastructure (docker compose)     | done   |
+| 6     | Database schema (Prisma, PostgreSQL)      | done   |
+| 7     | Backend foundation (auth, users)          | done   |
+| 8     | Chats, messages, read cursors, encryption | done   |
+| 9     | File storage on S3, attachments           | done   |
+| 10-19 | everything else                           | todo   |
 
-Working branches: `feat/monorepo-tooling-vite` (Steps 1-3, committed) and `feat/shared-and-infra` (Steps 4-5), branched in sequence from `develop` / `main`. The old MongoDB version is tagged `v1-mongo`. Nothing has been pushed.
+Working branches, each started from the previous one: `feat/monorepo-tooling-vite` (Steps 1-3), `feat/shared-and-infra` (Steps 4-5, committed) and `feat/api-rewrite` (Steps 6-11). The old MongoDB version is tagged `v1-mongo`. Nothing has been pushed.
 
 ## How these steps were done (test first)
 
@@ -130,10 +134,116 @@ Before any implementation, `tooling/repo.test.mjs` was written to describe Steps
 - **Host ports are bound to `127.0.0.1` and overridable** with `POSTGRES_PORT`, `S3_PORT` and `WEB_PORT` (root `.env`). The services use default dev passwords, so they should not listen on the network, and on the author's machine 5432 and 3000 are already taken by other containers.
 - The compose `api` service reads `apps/api/.env` as **optional** (`required: false`), so `docker compose config` works on a fresh clone and in CI.
 
+## Steps 6-9: the new backend
+
+These four steps replace the whole MongoDB/Mongoose api. They were done test-first and are described together because they depend on each other. The order inside the batch differed from the plan: **Step 9 (storage) was built before the messages half of Step 8**, because turning a stored message into a response signs its attachment URLs and therefore needs the storage service.
+
+**Test status when these steps were finished**
+
+| Suite                                           | Result    |
+| ----------------------------------------------- | --------- |
+| `pnpm test:repo`                                | 39 / 39   |
+| `@chat/shared` unit tests                       | 65 / 65   |
+| `@chat/api` unit tests (`pnpm test`)            | 92 / 92   |
+| `@chat/api` integration tests (`pnpm test:int`) | 156 / 156 |
+| `@chat/web` tests                               | 7 / 7     |
+| typecheck, lint, format check, build            | clean     |
+
+The integration tests run against a real PostgreSQL (database `chat_test`, created and migrated automatically) and a real S3 (SeaweedFS, bucket `chat-attachments-test`). Nothing in the database or S3 layer is mocked.
+
+### Step 6: database
+
+- `apps/api/prisma/schema.prisma` with six tables (`users`, `friendships`, `chats`, `chat_members`, `messages`, `attachments`), the init migration, `prisma.config.ts`, and `docs/database.md` with an ER diagram.
+- 23 tests describe the schema: unique keys, defaults, every cascade and "set null" rule, and that the migrations and `schema.prisma` do not drift apart.
+
+### Step 7: backend foundation
+
+- Environment validation (`parseEnv`, reports every problem at once), the key-ring parser, `PrismaService`, JWT authentication as a global guard with `@Public()`, the rate limiter, helmet, and the auth and users modules.
+- Validation uses Nest 12's built-in `StandardSchemaValidationPipe` with the shared zod schemas (`@Body({ schema })`), instead of the custom pipe the plan sketched.
+- The old Mongo code, its dependencies, the tsconfig relaxations and the API part of the lint override are gone.
+
+### Step 8: chats, messages, encryption, seed
+
+- Encryption: AES-256-GCM, a key per chat derived with HKDF, the chat id and message id bound into the ciphertext, a key ring with key ids for rotation. 17 tests cover round trips, tampering, moving a ciphertext to another chat or message, and rotation.
+- `ChatsService` (list with unread counts, search, create, join, details, `markRead`) and `MessagesService` (`send`, `edit`, `delete`, `list`). Only the history route is REST; the commands are plain service methods that the WebSocket gateway will call in Step 10, and they announce results with domain events.
+- `pnpm db:seed` fills the development database with demo data. The seed is tested like any other code and refuses to run in production.
+
+### Step 9: storage and attachments
+
+- `StorageService` (upload, signed URLs, batch delete, bucket creation outside production) and `POST /api/attachments`.
+
+### Things the tests caught
+
+Each of these was a failing test before it was a fix:
+
+1. **`prisma@latest` is the 8.0 release candidate.** Stable is 7.10, so Prisma is pinned to `7.10.0` (client and adapter too).
+2. **Prisma's `contains` does not escape SQL wildcards.** Searching for `a_c` also found `abc`, and `%` matched everything, which lets a user enumerate accounts. Fixed with an `escapeLike` helper used by both user and chat search.
+3. **multer reads multipart file names as Latin-1**, which turned `фото.png` into mojibake. Fixed with `defParamCharset: 'utf8'`.
+4. **Attachments lost their upload order**, because files of one request shared a timestamp. Each file now gets its own millisecond.
+5. **Global guards also run for WebSocket handlers.** The throttler and the JWT guard now skip non-HTTP contexts (unit-tested), so the Step 10 gateway will not be rejected by them.
+6. **Behind a reverse proxy every user would have shared one rate limit.** `trust proxy` is enabled in production only, and a test proves `X-Forwarded-For` is ignored otherwise (so it cannot be used to dodge the limit).
+
+### Deviations from the plan
+
+- **NestJS 12, with the app staying CommonJS.** The plan was written for Nest 11. Nest 12 ships ESM-only packages but supports CommonJS apps through `require(esm)`, and migrating our own code to ESM is optional. The compiled server was started and exercised over HTTP, because Vitest (which transforms to ESM) cannot prove that the CommonJS build works.
+- **Vitest was set up for the api at Step 6, not Step 11**, since there is no test-first work without a test runner. Step 11 now only needs the remaining cleanup. Two projects: `unit` (`pnpm test`, no services needed) and `integration` (`pnpm test:int`, needs `pnpm infra:up`).
+- **`PresenceService` (planned for Step 10) was built in Step 7**, because `GET /users/:id` and the friends list report who is online. Its grace-period behaviour is unit-tested with fake timers.
+- **The seed moved from Step 6 to Step 8**: it needs the encryption helper, and its messages must be encrypted like real ones.
+- **Direct chats require friendship**, like the old app (it only offered friends). The plan did not say; without it anyone could start a chat with anyone.
+- **Non-members get `403` for private chats**, and `members: []` plus no messages for a public-group preview, so a member list is for members only.
+- **Mongoose was removed in Step 7**, not Step 6, because the old code that used it was deleted then.
+- **Usernames are unique case-sensitively.** A case-insensitive rule would need a functional index that Prisma's schema cannot express (every `migrate dev` would try to drop it). Recorded in `docs/database.md`.
+- **pnpm build approvals** added: `prisma` and `@prisma/engines` (they download the migration engine). `@swc/core`, `esbuild` and `lefthook` are denied, because their binaries come as optional dependencies, and `bcrypt` was removed together with the native module.
+- **`@types/multer` needed in the api's `types`**, because the tsconfig restricts global types to the ones it lists.
+
+## Steps 10-11: realtime and the backend test suite
+
+**Test status when these steps were finished**
+
+| Suite                                           | Result                                                                                      |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `pnpm test:repo`                                | 42 / 42                                                                                     |
+| `@chat/shared` unit tests                       | 65 / 65                                                                                     |
+| `@chat/api` unit tests (`pnpm test`)            | 122 / 122                                                                                   |
+| `@chat/api` integration tests (`pnpm test:int`) | 203 / 203 (202 were stable over five consecutive runs; the S3 timeout test was added after) |
+| `@chat/web` tests                               | 7 / 7                                                                                       |
+| API coverage (`pnpm test:cov`, 325 tests)       | 99.3 % statements, 97.0 % branches, 100 % functions, 99.8 % lines                           |
+| typecheck, lint, format check, build            | clean                                                                                       |
+
+### Step 10: the gateway
+
+- `RealtimeGateway` is a thin adapter, as designed: it authenticates the handshake, validates each command with the shared zod schemas, calls the services, and answers with `{ ok, data | error }`. Services publish domain events, the gateway listens and broadcasts. Nothing in the services knows about sockets.
+- `createPacketGuard` ends sockets whose token expired and drops events above 30 per 10 seconds. Transport is WebSocket only, packets are limited to 100 KB, unknown events are ignored.
+- Documented in `docs/realtime.md`, with a repo test that fails if an event of the shared contract is missing from it.
+- The tests use **real Socket.IO clients against a really listening server**: 38 integration tests cover authentication, delivery to members and only to members, forged senders, idempotent retries, edits and deletes, read cursors, typing, chats created or joined while connected, presence (including several tabs and a page refresh), rate limiting, token expiry on an open socket, oversized packets and unknown events. 31 unit tests cover the gateway's decisions with fakes.
+- The compiled production build was started and checked with `scripts/ws-smoke.ts` over real WebSockets: all checks passed, no errors in the server log.
+
+### Step 11: tests and coverage
+
+Most of Step 11 had already happened as a by-product of working test-first (Vitest in Step 6, unit and integration projects, the crypto, chats, messages, presence, packet-guard and gateway tests). What was added here:
+
+- `pnpm test:cov` with `@vitest/coverage-v8`: both test projects measured together, thresholds enforced, reports not committed. The thresholds were verified to fail when set too high.
+- **Error-path tests.** The first measurement (97.7 % statements, 92.6 % branches) showed that the missing coverage was nearly all error handling. New tests cover: unexpected database errors are neither swallowed nor leaked (the 500 body is generic, secrets in the error message never reach the client); a failing S3 cleanup does not hide the original error; deleting a message succeeds when S3 file removal fails; two people starting the same direct chat at once end up in one chat; wrong S3 credentials fail startup instead of creating a bucket; plus edge cases of previews and deleted accounts. After that: 99.3 % and 97.0 %.
+- `docs/testing.md`: the layers, what is real and what is injected, the lessons from the flaky tests, and how to run each part.
+
+### Bugs found by the tests in these steps
+
+1. **A user was told about their own presence.** When someone connected, the server announced "online" to the rooms of their chats, and their own socket is in those rooms. A test failed intermittently on whether the stray packet arrived before or after it started listening. Fixed by announcing from the connecting socket, which leaves it out; a deterministic test now guards it.
+2. **The S3 client had no timeout.** An unresponsive S3 would hang an upload for ever. Adding `requestTimeout` was not enough: in this SDK version it only _logs a warning_, and `throwOnRequestTimeout: true` is what makes it an error. The first version of the fix passed review and changed nothing; the test was therefore run with and without the fix to prove it.
+3. **A possible race on connect:** a client can send its first event the moment it connects, before an asynchronous setup has put its socket into the chat rooms. The gateway now loads the user's chats during the handshake and joins the rooms synchronously when the connection is created.
+
+### Deviations from the plan
+
+- **`PresenceService` takes its grace period as an injectable value** (`PRESENCE_GRACE_MS`, default 5 s), so integration tests do not have to wait five seconds.
+- **The handshake distinguishes `Unauthorized` from `Server error`.** A database failure while loading the user's chats is no longer reported as "unauthorized".
+- **`scripts/ws-smoke.ts` became a checking tool** that exits non-zero on failure, instead of a script that only prints. The real coverage is in the integration tests; the script is for checking a _running_ server, including a deployed one.
+- **No test for a custom zod validation pipe**, because Nest 12's built-in `StandardSchemaValidationPipe` is used (Step 7).
+- **S3 requests have a 30 second timeout** (new `requestTimeoutMs` in the storage config).
+
 ## Notes for upcoming steps
 
-- **Step 6:** `DATABASE_URL` in `apps/api/.env.example` uses port 5432. If you changed `POSTGRES_PORT`, change the URL to match.
-- **Step 9:** the local S3 requires the `dev` / `dev` credentials, so `StorageService` must pass them to the SDK in development. Creating the bucket on startup works with them (verified with the AWS CLI).
-- **Step 7:** NestJS is now at v12 and TypeScript at v7 (the plan assumed Nest 11). Check peer ranges and decorator-metadata support before choosing versions, then remove the api's legacy tsconfig relaxations and the api part of the oxlint override.
-- **Step 11:** replace `jest --passWithNoTests` with Vitest.
+- **Ports:** `DATABASE_URL` in `apps/api/.env.example` uses port 5432. If you changed `POSTGRES_PORT`, change the URL to match.
+- **Step 13:** the web client must follow `docs/realtime.md`: refetch after every reconnect, de-duplicate the sender's own message by id, stop showing "typing" a few seconds after the last event, and handle a validation error from REST as a list of `field: problem` strings.
+- **Step 16:** the api Dockerfile must run `prisma migrate deploy`, and `prisma generate` needs a `DATABASE_URL` while building.
+- **Step 17:** CI needs a Postgres service container and an S3-compatible service (or a SeaweedFS container, started with the identity file `docker/s3.json`) for `test:int` and `test:cov`. After a deployment, run `scripts/ws-smoke.ts` against it.
 - **Step 14:** delete the web part of the oxlint override, antd and the `.css` files.

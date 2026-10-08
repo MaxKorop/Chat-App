@@ -1,22 +1,50 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { StandardSchemaValidationPipe } from '@nestjs/common';
+import { APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { MongooseModule } from '@nestjs/mongoose';
+import { JwtModule, type JwtSignOptions } from '@nestjs/jwt';
+import { ThrottlerModule } from '@nestjs/throttler';
 
-import { ChatModule } from './chat/chat.module';
-import { ImageModule } from './image/image.module';
-import { UserModule } from './user/user.module';
+import { HttpThrottlerGuard } from './common/http-throttler.guard';
+import { env } from './config/env';
+import { AttachmentsModule } from './modules/attachments/attachments.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { JwtAuthGuard } from './modules/auth/jwt-auth.guard';
+import { ChatsModule } from './modules/chats/chats.module';
+import { CryptoModule } from './modules/crypto/crypto.module';
+import { MessagesModule } from './modules/messages/messages.module';
+import { PresenceModule } from './modules/presence/presence.module';
+import { RealtimeModule } from './modules/realtime/realtime.module';
+import { StorageModule } from './modules/storage/storage.module';
+import { UsersModule } from './modules/users/users.module';
+import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
-    EventEmitterModule.forRoot(),
-    MongooseModule.forRoot(process.env.DB_CONNECTION_STRING, {
-      dbName: 'ChatDB',
+    JwtModule.register({
+      global: true,
+      secret: env.JWT_SECRET,
+      signOptions: { expiresIn: env.JWT_EXPIRES_IN as JwtSignOptions['expiresIn'] },
     }),
-    UserModule,
-    ChatModule,
-    ImageModule,
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+    EventEmitterModule.forRoot(),
+    PrismaModule,
+    PresenceModule,
+    CryptoModule,
+    StorageModule,
+    AuthModule,
+    UsersModule,
+    ChatsModule,
+    MessagesModule,
+    AttachmentsModule,
+    RealtimeModule,
+  ],
+  providers: [
+    // validates every `@Body({ schema })`, `@Query({ schema })` and `@Param(…, { schema })` with zod
+    { provide: APP_PIPE, useClass: StandardSchemaValidationPipe },
+    // the order matters: rate-limit first, then authenticate
+    { provide: APP_GUARD, useClass: HttpThrottlerGuard },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
 })
 export class AppModule {}
