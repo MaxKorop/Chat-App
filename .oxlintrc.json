@@ -1,0 +1,44 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "import", "react", "jsx-a11y", "vitest"],
+  "categories": { "correctness": "error", "suspicious": "warn" },
+  "env": { "browser": true, "node": true, "es2024": true },
+  "rules": {
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "warn",
+    "typescript/no-explicit-any": "warn",
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+
+    // Too noisy for this stack: CSS side-effect imports, empty decorated Nest modules,
+    // Mongo's `_id` (gone after the Prisma migration).
+    "import/no-unassigned-import": "off",
+    "typescript/no-extraneous-class": "off",
+    "no-underscore-dangle": "off",
+
+    // the JSX runtime is automatic (tsconfig "jsx": "react-jsx"), so React need not be imported
+    "react/react-in-jsx-scope": "off",
+
+    // `role="img"` on a span (an icon with a label) and `role="status"` on a div are the normal
+    // way to name an icon or announce a message; <img> and <output> are not drop-in replacements.
+    "jsx-a11y/prefer-tag-over-role": "off"
+  },
+  "overrides": [
+    {
+      // supertest's `.expect(201)` is the assertion, which this rule cannot see
+      "files": ["**/*.int.spec.ts"],
+      "rules": { "vitest/expect-expect": "off" }
+    },
+    {
+      // a helper next to the test that uses it (and the `let` it reads) is clearer than one hoisted away
+      "files": ["**/*.test.{ts,tsx,mjs}", "**/*.spec.ts"],
+      "rules": { "unicorn/consistent-function-scoping": "off" }
+    }
+  ],
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/build/**",
+    "**/generated/**",
+    "**/coverage/**",
+    "apps/web/src/components/ui/**"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "sourceMap": true,
+    "outDir": "./dist",
+    "incremental": true,
+    "types": ["node", "multer"]
+  },
+  "include": ["src", "prisma.config.ts", "vitest.config.mts", "prisma/**/*.ts", "scripts/**/*.ts"]
+}

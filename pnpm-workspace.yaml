@@ -1,0 +1,24 @@
+packages:
+  - apps/*
+  - packages/*
+
+# one version of shared deps across the repo (packages say "catalog:")
+catalog:
+  typescript: ^5.9.3
+  zod: ^4.6.0
+  vitest: ^5.0.0
+  '@types/node': ^24.0.0
+
+# needed by `pnpm deploy` in the api Dockerfile
+injectWorkspacePackages: true
+
+# install scripts are blocked by default; only these dependencies may run them
+allowBuilds:
+  prisma: true # downloads the schema/migration engine
+  '@prisma/engines': true
+  '@nestjs/core': false # only prints a donation banner
+  core-js: false
+  core-js-pure: false
+  lefthook: false # the binary ships as an optional dependency
+  '@swc/core': false # same: the binary ships as an optional dependency
+  esbuild: false # same (pulled in by tsx)
