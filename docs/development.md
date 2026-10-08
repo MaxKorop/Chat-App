@@ -145,6 +145,24 @@ PORT=4000 pnpm --filter @chat/api dev
 API_URL=http://localhost:4000 pnpm --filter @chat/web dev
 ```
 
+### Working on the frontend
+
+Architecture, where state lives and how the pieces fit: [frontend.md](./frontend.md). To try the app by hand you need the whole stack:
+
+```bash
+pnpm infra:up
+```
+
+```bash
+pnpm db:seed
+```
+
+```bash
+pnpm dev
+```
+
+then open the address Vite prints and log in as `alice`, `bob` or `carol` (password `password123`). Open a second browser profile as another user to see typing, read ticks and presence. To add a shadcn component: `pnpm --filter @chat/web exec shadcn add <name>`.
+
 ## Test-first workflow (TDD)
 
 Every change starts with a failing test.
@@ -168,7 +186,7 @@ Where tests live:
 
 - **oxlint** lints, **oxfmt** formats (config: `.oxlintrc.json`, `.oxfmtrc.json`). Git hooks run both on staged files, so formatting is never a review topic.
 - `docs/IMPROVEMENT_PLAN.md` is excluded from formatting on purpose, so the historical plan keeps a readable diff.
-- The `overrides` block in `.oxlintrc.json` downgrades some rules **only for legacy code** (the old Mongo api and antd/MobX UI). It is deleted together with that code (api: Step 7, web: Step 14). New code gets the strict rules.
+- All code is linted with the same strict rules. The only overrides in `.oxlintrc.json` are for test files (helpers next to the test that uses them), and `src/components/ui/` (shadcn's generated code) is not linted.
 
 ## Commits and branches
 

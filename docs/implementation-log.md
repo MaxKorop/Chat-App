@@ -240,10 +240,53 @@ Most of Step 11 had already happened as a by-product of working test-first (Vite
 - **No test for a custom zod validation pipe**, because Nest 12's built-in `StandardSchemaValidationPipe` is used (Step 7).
 - **S3 requests have a 30 second timeout** (new `requestTimeoutMs` in the storage config).
 
+## Steps 12-15: the web rewrite
+
+Done on its own branch (`feat/web-rewrite`), because it touches nothing in the backend. Architecture and conventions are in [frontend.md](./frontend.md).
+
+**Test status when these steps were finished**
+
+| Suite                                           | Result                                                |
+| ----------------------------------------------- | ----------------------------------------------------- |
+| `pnpm test:repo`                                | 50 / 50                                               |
+| `@chat/shared` unit tests                       | 65 / 65                                               |
+| `@chat/api` unit tests                          | 122 / 122                                             |
+| `@chat/api` integration tests (`pnpm test:int`) | 203 / 203 (unchanged: the backend was not touched)    |
+| `@chat/web` tests                               | 260 / 260 in 37 files (the old UI's 7 tests are gone) |
+| typecheck, lint, format check, web build        | clean                                                 |
+
+### What was built
+
+- **Step 12, foundation.** Tailwind v4 with shadcn/ui (Radix, the `nova` preset), 20 components, dark theme, `@` import alias, a Vite dev proxy for `/api` and `/socket.io`.
+- **Step 13, data layer.** React Query for everything the server owns, four small Zustand stores for the rest, a typed axios client (token header, `401` logs out, readable error messages), a typed Socket.IO client whose commands are promises, and `useRealtime()` which turns server events into cache updates. Optimistic sending with a pending store, retry with the same `clientId`, `seq`-gap detection.
+- **Step 14, UI.** Auth screen, sidebar with chat list and search (chats and people), create-chat, settings, profile and chat-info dialogs, header with typing and last-seen text, message bubbles (reply quote, images with a lightbox, ticks, context menu, inline edit, confirmed delete), composer (images, reply bar, typing signal), message list (reverse layout, infinite scroll upwards, "New messages" separator, read tracking), join bar for public groups, connection banner, responsive shell.
+- **Step 15, tests.** 260 web tests next to the code, with a fake socket and a fake `IntersectionObserver` playing the server and the screen. The old antd/MobX UI, its stylesheets, `mobx`, `moment`, `jwt-decode`, `antd`, `@ant-design/icons` and the legacy lint override are deleted; repo tests guard that.
+
+### Checked against the real backend
+
+With Postgres, S3 and the api running (`pnpm infra:up`, `pnpm db:seed`) and the Vite dev server, in a real browser: log-in as the seeded `alice`; chat list with unread badges; opening a chat scrolls to the "New messages" separator and sends `chat:read`; a second client (a script playing `bob` over a real socket) was seen typing, sending a live message, and reading, which turned the ticks to double; edit and delete through the context menu; an image upload (S3 URL, "📷 Photo" preview in the list); stopping the api showed the reconnect banner, a send failed after the 8 s timeout as "Not sent", and after restarting the api the banner disappeared on its own and **Retry** delivered exactly one copy; the phone layout (list, chat, back button); search and "Message" from a profile.
+
+### Bugs found by running it for real
+
+Each is now covered by a test that was seen failing first.
+
+1. **Two siblings with the same React key** in `ChatView` (list and composer both keyed by the chat id). It only warned in the console, and unit tests never looked at the console. A test now fails on any React warning while rendering a chat.
+2. **"Edit" in the context menu left the input without focus.** The menu holds the focus while open and hands it back to the message when it closes, so the input's own autofocus lost. The bubble now focuses the input when the menu has closed.
+3. **The search text stayed after "Message" in a profile opened a chat.** Opening any chat now ends the search.
+4. **A test suite that depended on port 3000 being empty.** jsdom's address is `http://localhost:3000`, which is where the api runs in development. A test that forgot to mock `getMe` made a real request to the running api, got a real `401`, and the app logged out in the middle of the test. It passed for weeks because nothing was listening. `test/setup.ts` now makes every unmocked axios request fail loudly, and the suite was run with the api up to prove it.
+5. Smaller ones found while writing the tests: a header that briefly asked for the wrong user before `me` was loaded; `userEvent.upload` silently honouring `accept`, which hid the "not an image" validation test; a "New messages" separator shown in a chat that had never been read (correct, and the test was wrong).
+
+### Deviations from the plan
+
+- **`cn` instead of `clsx` + `tailwind-merge`:** the current shadcn CLI generates `import { cn } from 'cn'` (a package) and `lib/utils.ts` re-exports it.
+- **Pending messages live in their own store**, not in the query cache, so the cache only holds what the server has.
+- **No date separators and no code splitting.** The production bundle is about 760 kB (240 kB gzipped); acceptable for this project, and `React.lazy` for the dialogs is the first thing to try if it matters.
+- **The "New messages" separator is computed once per opened chat**, after the history is loaded and refetched, and stays put while reading.
+- **Read marking only watches other people's messages**, only in a visible tab, and is debounced by 300 ms.
+
 ## Notes for upcoming steps
 
 - **Ports:** `DATABASE_URL` in `apps/api/.env.example` uses port 5432. If you changed `POSTGRES_PORT`, change the URL to match.
-- **Step 13:** the web client must follow `docs/realtime.md`: refetch after every reconnect, de-duplicate the sender's own message by id, stop showing "typing" a few seconds after the last event, and handle a validation error from REST as a list of `field: problem` strings.
 - **Step 16:** the api Dockerfile must run `prisma migrate deploy`, and `prisma generate` needs a `DATABASE_URL` while building.
 - **Step 17:** CI needs a Postgres service container and an S3-compatible service (or a SeaweedFS container, started with the identity file `docker/s3.json`) for `test:int` and `test:cov`. After a deployment, run `scripts/ws-smoke.ts` against it.
-- **Step 14:** delete the web part of the oxlint override, antd and the `.css` files.
+- **Step 16:** the web Dockerfile builds with `pnpm --filter @chat/web build`; the static files are served by Caddy, which also proxies `/api` and `/socket.io` (same origin, as in development).
