@@ -18,7 +18,7 @@ export function PendingBubble({ message }: { message: PendingMessage }) {
         className={
           failed
             ? 'bg-destructive/10 max-w-[85%] rounded-2xl rounded-br-sm px-3 py-1.5 sm:max-w-[70%]'
-            : 'bg-primary/70 text-primary-foreground max-w-[85%] rounded-2xl rounded-br-sm px-3 py-1.5 sm:max-w-[70%]'
+            : 'bg-bubble-own/70 text-bubble-own-foreground max-w-[85%] rounded-2xl rounded-br-sm px-3 py-1.5 sm:max-w-[70%]'
         }
       >
         {images > 0 && (

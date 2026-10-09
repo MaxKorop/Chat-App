@@ -1,0 +1,14 @@
+{
+  "name": "Chat App",
+  "short_name": "Chat",
+  "description": "Real-time chat with groups, images, read receipts and typing indicators",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#007475",
+  "background_color": "#f7fbfb",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

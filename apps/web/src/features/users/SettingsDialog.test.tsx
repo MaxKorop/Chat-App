@@ -1,10 +1,11 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { userKeys } from '@/lib/query-keys';
 import { useAuthStore } from '@/stores/auth-store';
 import { useChatUiStore } from '@/stores/chat-ui-store';
+import { useThemeStore } from '@/stores/theme-store';
 import { makeMe, makeUser } from '@/test/factories';
 import { loginAs, renderWithProviders } from '@/test/utils';
 
@@ -102,5 +103,29 @@ describe('SettingsDialog', () => {
     open();
     await user.click(await screen.findByRole('button', { name: 'Log out' }));
     expect(useAuthStore.getState().token).toBeNull();
+  });
+
+  describe('appearance', () => {
+    beforeEach(() => useThemeStore.setState({ preference: 'system' }));
+
+    it('offers light, dark and "follow the system", with the current choice selected', async () => {
+      open();
+      const group = await screen.findByRole('radiogroup', { name: 'Theme' });
+      expect(
+        within(group)
+          .getAllByRole('radio')
+          .map((r) => r.textContent),
+      ).toEqual(['Light', 'Dark', 'System']);
+      expect(within(group).getByRole('radio', { name: 'System' })).toBeChecked();
+    });
+
+    it('applies a choice at once and remembers it', async () => {
+      const user = userEvent.setup();
+      open();
+      await user.click(await screen.findByRole('radio', { name: 'Dark' }));
+      expect(useThemeStore.getState().preference).toBe('dark');
+      expect(screen.getByRole('radio', { name: 'Dark' })).toBeChecked();
+      expect(screen.getByRole('radio', { name: 'System' })).not.toBeChecked();
+    });
   });
 });

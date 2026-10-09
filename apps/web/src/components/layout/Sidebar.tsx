@@ -1,6 +1,7 @@
 import { Plus, Settings } from 'lucide-react';
 import { useState } from 'react';
 
+import { BrandMark } from '@/components/brand-mark';
 import { ChatAvatar } from '@/components/chat-avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +34,10 @@ export function Sidebar({ className }: { className?: string }) {
     <aside
       className={cn('flex h-full flex-col border-r bg-sidebar text-sidebar-foreground', className)}
     >
+      <header className="flex items-center gap-2.5 px-4 pt-4">
+        <BrandMark className="size-8 shrink-0" />
+        <h1 className="text-lg font-bold tracking-tight">Chat</h1>
+      </header>
       <div className="flex items-center gap-2 p-3">
         <Input
           type="search"
