@@ -6,8 +6,9 @@ import {
   isReadBy,
   type MessageDto,
 } from '@chat/shared';
-import { Check, CheckCheck, CornerUpLeft, Pencil, Trash2 } from 'lucide-react';
+import { Check, CheckCheck, Copy, CornerUpLeft, Pencil, Trash2 } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { toast } from 'sonner';
 
 import {
   AlertDialog,
@@ -67,7 +68,8 @@ export function MessageBubble({ message, chat, myId }: Props) {
   return (
     <>
       <ContextMenu>
-        <ContextMenuTrigger asChild>
+        {/* select-text: the shadcn trigger is select-none, which made message text impossible to select */}
+        <ContextMenuTrigger asChild className="select-text">
           <div
             id={`message-${message.id}`}
             className={cn('flex flex-col', mine ? 'items-end' : 'items-start')}
@@ -158,6 +160,12 @@ export function MessageBubble({ message, chat, myId }: Props) {
             <CornerUpLeft />
             Reply
           </ContextMenuItem>
+          {message.content && (
+            <ContextMenuItem onSelect={() => void copyText(message.content!)}>
+              <Copy />
+              Copy text
+            </ContextMenuItem>
+          )}
           {canEdit && (
             <ContextMenuItem
               onSelect={() => {
@@ -291,4 +299,14 @@ function Ticks({ message, chat, myId }: Props) {
       <TooltipContent>{hint}</TooltipContent>
     </Tooltip>
   );
+}
+
+/** For phones, where a long press opens the menu instead of starting a text selection. */
+async function copyText(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success('Copied');
+  } catch {
+    toast.error('Could not copy. Select the text and copy it instead.');
+  }
 }
