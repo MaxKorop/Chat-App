@@ -1,5 +1,4 @@
-import { MessageCircle } from 'lucide-react';
-
+import { BrandMark } from '@/components/brand-mark';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import { LogInForm } from './LogInForm';
@@ -8,11 +7,11 @@ import { SignUpForm } from './SignUpForm';
 /** What a visitor without a session sees. */
 export function AuthScreen() {
   return (
-    <main className="flex min-h-dvh items-center justify-center p-4">
-      <div className="bg-card w-full max-w-sm space-y-6 rounded-xl border p-6 shadow-sm">
+    <main className="bg-chat-background flex min-h-dvh items-center justify-center p-4">
+      <div className="bg-card w-full max-w-sm space-y-6 rounded-2xl border p-8 shadow-lg">
         <header className="flex flex-col items-center gap-2 text-center">
-          <MessageCircle className="text-primary size-8" aria-hidden />
-          <h1 className="text-xl font-semibold">Chat</h1>
+          <BrandMark className="size-14 drop-shadow-md" />
+          <h1 className="text-2xl font-bold tracking-tight">Chat</h1>
           <p className="text-muted-foreground text-sm">
             Log in or create an account to start chatting
           </p>

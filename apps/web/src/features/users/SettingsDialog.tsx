@@ -24,6 +24,7 @@ import { useMe } from '@/features/auth/queries';
 import { useAuthStore } from '@/stores/auth-store';
 import { useChatUiStore } from '@/stores/chat-ui-store';
 
+import { AppearancePicker } from './AppearancePicker';
 import { useFriends, useRemoveFriend, useUpdateMe } from './queries';
 
 type FormValues = z.input<typeof updateMeSchema>;
@@ -165,6 +166,11 @@ export function SettingsDialog() {
           <DialogDescription>Your profile and privacy</DialogDescription>
         </DialogHeader>
         {me ? <ProfileForm me={me} /> : <Skeleton className="h-40 w-full" />}
+        <Separator />
+        <section className="space-y-2">
+          <h3 className="text-sm font-medium">Appearance</h3>
+          <AppearancePicker />
+        </section>
         <Separator />
         <section className="space-y-2">
           <h3 className="text-sm font-medium">Friends</h3>
