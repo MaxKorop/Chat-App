@@ -1,7 +1,7 @@
 import type { ChatDetailsDto, MessageDto } from '@chat/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useChatUiStore } from '@/stores/chat-ui-store';
 import { makeChatDetails, makeMessage } from '@/test/factories';
@@ -160,27 +160,77 @@ describe('the context menu offers only what is allowed', () => {
     return (await screen.findAllByRole('menuitem')).map((item) => item.textContent);
   };
 
-  it('my own message: reply, edit and delete', async () => {
+  it('my own message: reply, copy, edit and delete', async () => {
     expect(
       await itemsAfterRightClick(mine({ content: 'mine' }), groupChat('MEMBER'), 'mine'),
-    ).toEqual(['Reply', 'Edit', 'Delete']);
+    ).toEqual(['Reply', 'Copy text', 'Edit', 'Delete']);
   });
 
-  it('somebody else’s message in a group: only reply, for a plain member', async () => {
+  it('somebody else’s message in a group: reply and copy, for a plain member', async () => {
     expect(await itemsAfterRightClick(theirs(), groupChat('MEMBER'), 'from bob')).toEqual([
       'Reply',
+      'Copy text',
     ]);
   });
 
-  it('…and reply plus delete for the group’s owner (never edit)', async () => {
+  it('…and delete too for the group’s owner (never edit)', async () => {
     expect(await itemsAfterRightClick(theirs(), groupChat('OWNER'), 'from bob')).toEqual([
       'Reply',
+      'Copy text',
       'Delete',
     ]);
   });
 
   it('in a direct chat either person may delete any message', async () => {
-    expect(await itemsAfterRightClick(theirs(), dmChat, 'from bob')).toEqual(['Reply', 'Delete']);
+    expect(await itemsAfterRightClick(theirs(), dmChat, 'from bob')).toEqual([
+      'Reply',
+      'Copy text',
+      'Delete',
+    ]);
+  });
+
+  it('a message with only an image has nothing to copy', async () => {
+    const image = {
+      id: 'a1',
+      fileName: 'cat.png',
+      mimeType: 'image/png',
+      size: 10,
+      url: 'http://s3/cat.png',
+    };
+    const user = userEvent.setup();
+    show(mine({ content: null, attachments: [image] }), dmChat);
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByRole('img', { name: 'cat.png' }),
+    });
+    const items = (await screen.findAllByRole('menuitem')).map((item) => item.textContent);
+    expect(items).not.toContain('Copy text');
+  });
+});
+
+describe('selecting text', () => {
+  // The shadcn context-menu trigger comes with `select-none`, which made it impossible to select
+  // (and so copy) part of a message. jsdom does not apply Tailwind, so the classes are what we can check.
+  it('is allowed: no part of the bubble is select-none', () => {
+    const { container } = show(mine({ content: 'copy me' }));
+    const text = screen.getByText('copy me');
+    for (
+      let element: HTMLElement | null = text;
+      element && element !== container.parentElement;
+      element = element.parentElement
+    )
+      expect(element.className, `<${element.tagName.toLowerCase()}>`).not.toMatch(
+        /\bselect-none\b/,
+      );
+    expect(text.closest('[data-slot=context-menu-trigger]')).toHaveClass('select-text');
+  });
+
+  it('can be copied from the menu, for phones where a long press opens the menu instead of selecting', async () => {
+    const user = userEvent.setup(); // user-event provides a working clipboard
+    show(theirs({ content: 'copy this please' }));
+    await rightClick(user, 'copy this please');
+    await user.click(await screen.findByRole('menuitem', { name: 'Copy text' }));
+    await expect(navigator.clipboard.readText()).resolves.toBe('copy this please');
   });
 });
 
