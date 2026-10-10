@@ -6,17 +6,18 @@ The working rules stay the same: **test first**, one branch and one pull request
 
 ## What was asked for, and where it lands
 
-| Request                                     | Step   |
-| ------------------------------------------- | ------ |
-| Favicon                                     | 20     |
-| Light and dark theme, a lighter dark theme  | 20     |
-| Refine the UI (layout, messages, modals)    | 21     |
-| User avatars and chat avatars               | 22     |
-| Add users to an existing group              | 23     |
-| Files other than images, with a size limit  | 24     |
-| Message status                              | 25     |
-| Attachments in the chat info modal (+ more) | 26     |
-| New features found in the review            | 27, 28 |
+| Request                                                                            | Step   |
+| ---------------------------------------------------------------------------------- | ------ |
+| Favicon                                                                            | 20     |
+| Light and dark theme, a lighter dark theme                                         | 20     |
+| Refine the UI (layout, messages, modals)                                           | 21     |
+| Reply to a specific part of a message (new idea; came from the text-selection bug) | 21b    |
+| User avatars and chat avatars                                                      | 22     |
+| Add users to an existing group                                                     | 23     |
+| Files other than images, with a size limit                                         | 24     |
+| Message status                                                                     | 25     |
+| Attachments in the chat info modal (+ more)                                        | 26     |
+| New features found in the review                                                   | 27, 28 |
 
 ## What the review found
 
@@ -41,6 +42,7 @@ Besides the requests, reading the code and using the app turned up these gaps. E
 ```mermaid
 flowchart LR
     s20["20 Theme, brand, favicon"] --> s21["21 Layout and timeline"]
+    s21 --> s21b["21b Quote reply"]
     s21 --> s22["22 Avatars"]
     s22 --> s23["23 Group management"]
     s21 --> s24["24 File attachments"]
@@ -56,15 +58,16 @@ Theme and layout go first because every later step adds UI on top of them. Steps
 
 ## Data changes at a glance
 
-| Step | Database (Prisma migration)                                                             | Socket events                             | REST                                                                                              |
-| ---- | --------------------------------------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| 22   | `users.avatar_key`, `chats.avatar_key`                                                  | `chat:changed` reused, `user:changed`     | `PUT`/`DELETE /users/me/avatar`, `PUT`/`DELETE /chats/:id/avatar`                                 |
-| 23   | `ADMIN` in the role enum; `messages.kind` (`USER`/`SYSTEM`) and `messages.event` (JSON) | `chat:removed`                            | `PATCH /chats/:id`, members `POST`/`PATCH`/`DELETE`, `POST /chats/:id/leave`, `DELETE /chats/:id` |
-| 24   | none (the `attachments` table already has name, type and size)                          | none                                      | `POST /attachments` accepts any file                                                              |
-| 25   | `chat_members.last_delivered_seq`                                                       | `chat:delivered` (both directions)        | none                                                                                              |
-| 26   | `messages.has_link`                                                                     | none                                      | `GET /chats/:id/media`, `/files`, `/links`; `PATCH /chats/:id/settings`                           |
-| 27   | `message_reactions`; `messages.pinned_at`, `pinned_by_id`                               | `reaction:set`, `message:pin`, broadcasts | `GET /chats/:id/pins`                                                                             |
-| 28   | `chat_members.muted_until`                                                              | none                                      | `PATCH /chats/:id/settings` (mute)                                                                |
+| Step | Database (Prisma migration)                                                             | Socket events                                | REST                                                                                              |
+| ---- | --------------------------------------------------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 21b  | `messages.reply_quote` (encrypted, like `content`)                                      | `message:send` gets an optional `replyQuote` | none (history DTOs get `replyTo.quote`)                                                           |
+| 22   | `users.avatar_key`, `chats.avatar_key`                                                  | `chat:changed` reused, `user:changed`        | `PUT`/`DELETE /users/me/avatar`, `PUT`/`DELETE /chats/:id/avatar`                                 |
+| 23   | `ADMIN` in the role enum; `messages.kind` (`USER`/`SYSTEM`) and `messages.event` (JSON) | `chat:removed`                               | `PATCH /chats/:id`, members `POST`/`PATCH`/`DELETE`, `POST /chats/:id/leave`, `DELETE /chats/:id` |
+| 24   | none (the `attachments` table already has name, type and size)                          | none                                         | `POST /attachments` accepts any file                                                              |
+| 25   | `chat_members.last_delivered_seq`                                                       | `chat:delivered` (both directions)           | none                                                                                              |
+| 26   | `messages.has_link`                                                                     | none                                         | `GET /chats/:id/media`, `/files`, `/links`; `PATCH /chats/:id/settings`                           |
+| 27   | `message_reactions`; `messages.pinned_at`, `pinned_by_id`                               | `reaction:set`, `message:pin`, broadcasts    | `GET /chats/:id/pins`                                                                             |
+| 28   | `chat_members.muted_until`                                                              | none                                         | `PATCH /chats/:id/settings` (mute)                                                                |
 
 ---
 
@@ -117,6 +120,25 @@ Theme and layout go first because every later step adds UI on top of them. Steps
 **Tests:** separator and grouping rules as pure functions (`groupTimeline(messages, now)`), the link detector, the jump-to-latest button, keyboard access to the actions menu, the composer counter. Existing message list tests are kept green.
 
 **Done when** a long chat reads well on desktop and phone, every action is reachable without a mouse, and the screenshots in the README are updated.
+
+---
+
+## Step 21b: Reply to a part of a message
+
+**Branch:** `feat/quote-reply`. New feature. It came out of the bug where message text could not be selected: now that it can, selecting a sentence and replying to just that sentence is the natural next step (Telegram and WhatsApp both have it).
+
+**Goal:** in a long message, reply to the one sentence you mean, and show that sentence, not the whole message, in the quote.
+
+1. **Selecting.** When text inside one message bubble is selected (the Selection API, `selectionchange`), a small floating button "Reply" appears above the selection; on touch screens, where the system's own selection toolbar takes the place, the same action is in the message menu as "Reply to selection" while a selection exists. The button is a real button (keyboard reachable, an accessible name) and is hidden when the selection spans several messages, is empty or whitespace, or is inside the composer.
+2. **Composer.** The reply bar shows the quoted fragment (up to two lines, with "…" when cut) and a cancel button. Without a selection, "Reply" works as before and quotes the start of the message.
+3. **Data.** `messages.reply_quote`, nullable text, **encrypted exactly like `content`** (same key ring, the AAD is `chatId:messageId`): a quote is message text, so it must not sit in the database in plain text. The shared `sendMessageEventSchema` gets an optional `replyQuote` (1 to 300 characters, only with `replyToId`).
+4. **The server checks the quote is real.** It decrypts the original message and requires `replyQuote` to be a substring of it. Otherwise anyone could put words in somebody else's mouth ("Alice said: …") under a real reply link. A quote that is not found is a `400` with a clear message. Whitespace is normalised on both sides before comparing, so a selection that crosses a line break still matches.
+5. **Snapshot, not a live link.** The quote is stored with the reply. If the original is edited later, the reply keeps what was quoted (and the jump still goes to the message); if the original is deleted, the quote stays readable, as the preview does today. `MessageDto.replyTo` gets `quote: string | null`; the existing `preview` stays for replies without a quote.
+6. **Showing it.** The quote block in the bubble shows the fragment. Clicking it scrolls to the original message and highlights the quoted text there (a `<mark>` over the first occurrence for a second or two); if the text was edited away, only the message is highlighted.
+
+**Tests:** the shared schema (length, needs `replyToId`), the substring rule (found, not found, whitespace differences, original edited after quoting), encryption of the stored quote, the DTO in history and in the broadcast, the floating button (appears for a selection in one bubble, hidden for empty, multi-message and composer selections; keyboard access), the reply bar and the highlight. A real-browser check, because jsdom's selection support is limited.
+
+**Done when** selecting a sentence in a long message shows a Reply button, the reply carries just that sentence, and a hand-made request quoting words the original does not contain is refused.
 
 ---
 
