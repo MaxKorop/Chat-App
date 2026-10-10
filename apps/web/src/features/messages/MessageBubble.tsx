@@ -76,8 +76,8 @@ export function MessageBubble({ message, chat, myId }: Props) {
               className={cn(
                 'max-w-[85%] rounded-2xl px-3 py-1.5 sm:max-w-[70%]',
                 mine
-                  ? 'rounded-br-sm bg-primary text-primary-foreground'
-                  : 'rounded-bl-sm bg-muted',
+                  ? 'bg-bubble-own text-bubble-own-foreground rounded-br-sm'
+                  : 'bg-bubble-other text-bubble-other-foreground rounded-bl-sm shadow-sm',
               )}
             >
               {!mine && chat.type === 'GROUP' && (
@@ -133,7 +133,7 @@ export function MessageBubble({ message, chat, myId }: Props) {
               <div
                 className={cn(
                   'mt-0.5 flex items-center justify-end gap-1 text-[11px]',
-                  mine ? 'text-primary-foreground/70' : 'text-muted-foreground',
+                  mine ? 'text-bubble-own-muted' : 'text-muted-foreground',
                 )}
               >
                 {message.editedAt && <span>edited</span>}
@@ -229,7 +229,7 @@ function ReplyQuote({ reply, mine }: { reply: NonNullable<MessageDto['replyTo']>
       className={cn(
         'mb-1 block w-full rounded-md border-l-2 px-2 py-1 text-left text-xs',
         mine
-          ? 'border-primary-foreground/60 bg-primary-foreground/10'
+          ? 'border-bubble-own-muted bg-bubble-own-foreground/15'
           : 'border-primary bg-background/60',
       )}
     >

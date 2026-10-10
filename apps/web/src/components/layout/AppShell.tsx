@@ -26,7 +26,12 @@ export function AppShell() {
             chatIsOpen ? 'hidden' : 'flex',
           )}
         />
-        <main className={cn('min-w-0 flex-1 flex-col md:flex', chatIsOpen ? 'flex' : 'hidden')}>
+        <main
+          className={cn(
+            'bg-chat-background min-w-0 flex-1 flex-col md:flex',
+            chatIsOpen ? 'flex' : 'hidden',
+          )}
+        >
           <ChatView />
         </main>
       </div>

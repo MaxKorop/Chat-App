@@ -19,6 +19,13 @@ body {
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: 'Geist Variable', sans-serif;
+  --color-brand: var(--brand);
+  --color-chat-background: var(--chat-background);
+  --color-bubble-own: var(--bubble-own);
+  --color-bubble-own-foreground: var(--bubble-own-foreground);
+  --color-bubble-own-muted: var(--bubble-own-muted);
+  --color-bubble-other: var(--bubble-other);
+  --color-bubble-other-foreground: var(--bubble-other-foreground);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -59,73 +66,92 @@ body {
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* The brand is "lagoon": a deep sea-glass teal. Calm and trustworthy, quick and clean, and nothing like
+   the blue or purple of most chat apps. --brand is for the logo and decoration; text uses --primary.
+   Greys are tinted with the same hue. Every pair is checked by styles.test.ts. */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --brand: oklch(0.6 0.105 190);
+  --background: oklch(0.985 0.004 195);
+  --foreground: oklch(0.24 0.03 215);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.24 0.03 215);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --popover-foreground: oklch(0.24 0.03 215);
+  --primary: oklch(0.5 0.1 190);
+  --primary-foreground: oklch(0.99 0.004 195);
+  --secondary: oklch(0.955 0.012 195);
+  --secondary-foreground: oklch(0.3 0.05 205);
+  --muted: oklch(0.96 0.008 195);
+  --muted-foreground: oklch(0.5 0.03 205);
+  --accent: oklch(0.94 0.03 190);
+  --accent-foreground: oklch(0.3 0.06 200);
+  --destructive: oklch(0.55 0.2 27);
+  --border: oklch(0.9 0.012 195);
+  --input: oklch(0.88 0.015 195);
+  --ring: oklch(0.62 0.1 190);
+  --chart-1: oklch(0.82 0.08 185);
+  --chart-2: oklch(0.7 0.1 188);
+  --chart-3: oklch(0.6 0.105 190);
+  --chart-4: oklch(0.5 0.1 195);
+  --chart-5: oklch(0.4 0.08 205);
+  --radius: 0.75rem;
+  /* the conversation */
+  --chat-background: oklch(0.965 0.012 195);
+  --bubble-own: oklch(0.5 0.1 190);
+  --bubble-own-foreground: oklch(0.99 0.004 195);
+  --bubble-own-muted: oklch(0.95 0.03 190); /* time and ticks on my bubble */
+  --bubble-other: oklch(1 0 0);
+  --bubble-other-foreground: oklch(0.24 0.03 215);
+  --sidebar: oklch(0.99 0.005 195);
+  --sidebar-foreground: oklch(0.24 0.03 215);
+  --sidebar-primary: oklch(0.5 0.1 190);
+  --sidebar-primary-foreground: oklch(0.99 0.004 195);
+  --sidebar-accent: oklch(0.94 0.03 190);
+  --sidebar-accent-foreground: oklch(0.3 0.06 200);
+  --sidebar-border: oklch(0.9 0.012 195);
+  --sidebar-ring: oklch(0.62 0.1 190);
 }
 
+/* Deep slate with a hint of the sea, not black: surfaces are a step lighter than the background. */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --brand: oklch(0.68 0.11 188);
+  --background: oklch(0.27 0.02 215);
+  --foreground: oklch(0.96 0.008 195);
+  --card: oklch(0.31 0.022 215);
+  --card-foreground: oklch(0.96 0.008 195);
+  --popover: oklch(0.31 0.022 215);
+  --popover-foreground: oklch(0.96 0.008 195);
+  --primary: oklch(0.76 0.11 188);
+  --primary-foreground: oklch(0.22 0.04 205);
+  --secondary: oklch(0.35 0.025 215);
+  --secondary-foreground: oklch(0.96 0.008 195);
+  --muted: oklch(0.33 0.02 215);
+  --muted-foreground: oklch(0.76 0.03 195);
+  --accent: oklch(0.38 0.05 195);
+  --accent-foreground: oklch(0.97 0.008 195);
+  --destructive: oklch(0.72 0.17 22);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.68 0.1 188);
+  --chart-1: oklch(0.85 0.07 185);
+  --chart-2: oklch(0.76 0.11 188);
+  --chart-3: oklch(0.66 0.11 190);
+  --chart-4: oklch(0.56 0.1 195);
+  --chart-5: oklch(0.46 0.08 205);
+  --chat-background: oklch(0.29 0.022 215);
+  --bubble-own: oklch(0.5 0.1 190);
+  --bubble-own-foreground: oklch(0.99 0.004 195);
+  --bubble-own-muted: oklch(0.95 0.03 190);
+  --bubble-other: oklch(0.35 0.025 215);
+  --bubble-other-foreground: oklch(0.97 0.008 195);
+  --sidebar: oklch(0.23 0.02 215);
+  --sidebar-foreground: oklch(0.96 0.008 195);
+  --sidebar-primary: oklch(0.76 0.11 188);
+  --sidebar-primary-foreground: oklch(0.22 0.04 205);
+  --sidebar-accent: oklch(0.34 0.04 200);
+  --sidebar-accent-foreground: oklch(0.97 0.008 195);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.68 0.1 188);
 }
 
 @layer base {

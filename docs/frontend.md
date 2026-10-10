@@ -14,7 +14,7 @@ The web app (`apps/web`) is a React 19 single-page app built with Vite. It talks
 | HTTP / realtime | axios, socket.io-client                                          |
 | Tests           | Vitest (jsdom) and Testing Library                               |
 
-The app is always dark (`class="dark"` on `<html>`). shadcn components live in `src/components/ui/` and are generated code: they are excluded from the linter and changed only by re-running the shadcn CLI.
+The app has a light and a dark theme (see "Theme and brand" below). shadcn components live in `src/components/ui/` and are generated code: they are excluded from the linter and changed only by re-running the shadcn CLI.
 
 ## Folder layout
 
@@ -39,6 +39,18 @@ src/
 
 A feature's `api.ts` only calls the network and returns typed data; components never call axios themselves. A repo test fails if the web app calls a route that `docs/api.md` does not document, or never calls one that it does.
 
+## Theme and brand
+
+The app has a light and a dark theme, and follows the device's setting until the user chooses (Settings → Appearance).
+
+- **Tokens.** All colours are CSS variables in `src/styles.css`: `:root` is the light theme and `.dark` overrides it. Besides the shadcn tokens there are `--brand` (the lagoon teal of the logo), `--chat-background` and the message bubble tokens (`--bubble-own`, `--bubble-own-foreground`, `--bubble-own-muted`, `--bubble-other`, `--bubble-other-foreground`). Components use them as Tailwind classes (`bg-bubble-own`, `bg-chat-background`), never raw colours.
+- **Readability is tested.** `styles.test.ts` reads the tokens from the stylesheet and checks the WCAG contrast (4.5:1) of every text/background pair in both themes, so a palette change that hurts readability fails the build. The dark theme is dark slate, not black; a test pins its minimum lightness.
+- **No flash on load.** `public/theme-init.js` runs synchronously in `<head>`, reads the saved choice (`localStorage` key `theme`, written by `theme-store`) and sets the `dark` class before the first paint. It is a file, not an inline script, because the production Content-Security-Policy forbids inline scripts. Its colours and storage format must match `lib/theme.ts` and `stores/theme-store.ts`; `theme-init.test.ts` checks it.
+- **Browser bar.** `<meta name="theme-color">` is updated with the theme (`THEME_COLORS` equals each theme's `--background`, also tested).
+- **Hooks.** `useResolvedTheme()` is the theme in effect (it follows `prefers-color-scheme` while the choice is `system`); `useApplyTheme()` is mounted once in the providers and keeps the page in step. The toaster reads the same hook. (`next-themes` was dropped: it injects an inline script.)
+
+Icons live in `apps/web/public/` (`favicon.svg`, `favicon.ico`, the PNG icons and `manifest.webmanifest`). The PNG and ICO files are generated from `favicon.svg` by `node tooling/make-icons.mjs` (headless Chrome) and committed; run it after changing the logo. `BrandMark` is the same logo as a React component.
+
 ## Where state lives
 
 The rule: **anything the server owns is in React Query; anything only this browser knows is in Zustand.**
@@ -49,6 +61,7 @@ The rule: **anything the server owns is in React Query; anything only this brows
 | `chat-ui-store` | open chat, reply target, message being edited, open dialog, shown profile, connection state                        | no        |
 | `pending-store` | messages sent but not yet confirmed by the server (kept outside the query cache, which only holds stored messages) | no        |
 | `typing-store`  | who is typing in which chat; an entry expires 5 seconds after the last `typing` event                              | no        |
+| `theme-store`   | the theme choice: `light`, `dark` or `system`                                                                      | yes       |
 
 Query keys are defined in one place (`lib/query-keys.ts`), so cache updates from socket events and invalidations after mutations cannot drift apart.
 

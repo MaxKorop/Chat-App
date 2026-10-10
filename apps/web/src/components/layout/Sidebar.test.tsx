@@ -36,6 +36,13 @@ describe('Sidebar', () => {
     expect(await screen.findByText('alice')).toBeInTheDocument();
   });
 
+  it('shows the app name with its logo above the search', async () => {
+    const { container } = renderSidebar();
+    expect(screen.getByRole('heading', { name: 'Chat' })).toBeInTheDocument();
+    expect(container.querySelector('aside svg')).toBeInTheDocument();
+    await screen.findByText('Study group');
+  });
+
   it('opens the dialogs for creating a chat and for settings', async () => {
     const user = userEvent.setup();
     renderSidebar();

@@ -396,7 +396,7 @@ describe('Step 5: local infrastructure', () => {
 
   it('exposes infra scripts at the root', () => {
     const { scripts } = readJson('package.json');
-    assert.match(scripts['infra:up'], /docker compose up -d postgres s3/);
+    assert.match(scripts['infra:up'], /docker compose up -d --wait postgres s3/);
     assert.match(scripts['infra:down'], /docker compose down/);
   });
 });
@@ -628,9 +628,7 @@ describe('Step 12: Tailwind and shadcn/ui', () => {
     }
   });
 
-  it('stays dark, as the old app was', () => {
-    assert.match(readFileSync(web('index.html'), 'utf8'), /<html[^>]*class="dark"/);
-  });
+  // light and dark themes: see tooling/brand.test.mjs
 });
 
 describe('Step 13: the frontend data layer', () => {
